@@ -2659,6 +2659,417 @@ def export_issues_to_excel(db: Session = Depends(get_db), user: User = Depends(g
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename_utf8)}"}
     )
+# ==================== ПОЛНОЕ ВОССТАНОВЛЕНИЕ (format=full, version 2) ====================
+def _restore_parse_value(col, value):
+    """Привести значение из JSON к типу колонки: даты из ISO, enum из value."""
+    if value is None:
+        return None
+    t = col.type
+    try:
+        if isinstance(t, SQLEnum) and getattr(t, "enum_class", None):
+            ec = t.enum_class
+            try:
+                return ec(value)           # по value ("SKLAD")
+            except Exception:
+                try:
+                    return ec[value]       # запасной путь — по имени
+                except Exception:
+                    return None
+        if isinstance(t, DateTime):
+            return datetime.fromisoformat(value) if isinstance(value, str) else value
+        if isinstance(t, Date):
+            return date.fromisoformat(value) if isinstance(value, str) else value
+    except Exception:
+        return None
+    return value
+
+
+def _restore_model_kwargs(model, rec, fk_maps, skip=()):
+    """Собрать kwargs для модели из dict бэкапа с ремапом внешних ключей."""
+    kwargs = {}
+    for col in model.__table__.columns:
+        name = col.name
+        if name in skip:
+            continue
+        if name in fk_maps:
+            old = rec.get(name)
+            kwargs[name] = fk_maps[name].get(old) if old is not None else None
+        elif name in rec:
+            kwargs[name] = _restore_parse_value(col, rec.get(name))
+    return kwargs
+
+
+def _restore_full_backup(backup, db):
+    """Восстановить полный бэкап оригинального приложения (все 16 таблиц).
+
+    Принцип: числовые id со старой базы НЕ переносим — сопоставляем записи по
+    естественным ключам, строим old_id -> new_id и ремапим все внешние ключи.
+    Каждая запись пишется в отдельном SAVEPOINT: ошибка одной не рушит остальные.
+    """
+    tables = backup.get("tables", {}) or {}
+    stats = {}
+    errors = []
+
+    def st(name):
+        if name not in stats:
+            stats[name] = {"created": 0, "matched": 0, "skipped": 0}
+        return stats[name]
+
+    def err(table, rec, exc):
+        if len(errors) < 200:
+            rid = rec.get("id") if isinstance(rec, dict) else None
+            errors.append(f"{table} id={rid}: {exc}")
+
+    def add_record(model, kwargs):
+        """Вставить запись в SAVEPOINT и вернуть её новый id."""
+        obj = model(**kwargs)
+        with db.begin_nested():
+            db.add(obj)
+            db.flush()
+        return obj.id
+
+    units_map, roles_map, users_map, registers_map = {}, {}, {}, {}
+    masters_map, va_map, tt_map, materials_map, putype_map = {}, {}, {}, {}, {}
+    ttr_res_map, ttr_esk_map, pu_items_map = {}, {}, {}
+
+    # --- units: матч по code; parent_id проставляем во втором проходе ---
+    s = st("units")
+    for rec in tables.get("units", []):
+        try:
+            code = rec.get("code")
+            existing = db.query(Unit).filter(Unit.code == code).first() if code else None
+            if existing:
+                units_map[rec.get("id")] = existing.id
+                s["matched"] += 1
+            else:
+                kwargs = _restore_model_kwargs(Unit, rec, {}, skip=("id", "parent_id"))
+                units_map[rec.get("id")] = add_record(Unit, kwargs)
+                s["created"] += 1
+        except Exception as e:
+            err("units", rec, e)
+            s["skipped"] += 1
+    db.commit()
+    for rec in tables.get("units", []):
+        old_parent = rec.get("parent_id")
+        new_id = units_map.get(rec.get("id"))
+        if not old_parent or not new_id:
+            continue
+        try:
+            unit = db.query(Unit).filter(Unit.id == new_id).first()
+            if unit is not None and unit.parent_id is None:
+                unit.parent_id = units_map.get(old_parent)
+        except Exception as e:
+            err("units.parent", rec, e)
+    db.commit()
+
+    # --- roles: матч по code, новые не создаём ---
+    s = st("roles")
+    for rec in tables.get("roles", []):
+        code = rec.get("code")
+        existing = db.query(Role).filter(Role.code == code).first() if code else None
+        if existing:
+            roles_map[rec.get("id")] = existing.id
+            s["matched"] += 1
+        else:
+            s["skipped"] += 1
+
+    # --- users: матч по username, иначе создать (со всеми полями) ---
+    s = st("users")
+    fk = {"role_id": roles_map, "unit_id": units_map}
+    for rec in tables.get("users", []):
+        try:
+            username = rec.get("username")
+            existing = db.query(User).filter(User.username == username).first() if username else None
+            if existing:
+                users_map[rec.get("id")] = existing.id
+                s["matched"] += 1
+            else:
+                kwargs = _restore_model_kwargs(User, rec, fk, skip=("id",))
+                users_map[rec.get("id")] = add_record(User, kwargs)
+                s["created"] += 1
+        except Exception as e:
+            err("users", rec, e)
+            s["skipped"] += 1
+    db.commit()
+
+    # --- pu_registers: создаём все, uploaded_by по map users ---
+    s = st("pu_registers")
+    fk = {"uploaded_by": users_map}
+    for rec in tables.get("pu_registers", []):
+        try:
+            kwargs = _restore_model_kwargs(PURegister, rec, fk, skip=("id",))
+            registers_map[rec.get("id")] = add_record(PURegister, kwargs)
+            s["created"] += 1
+        except Exception as e:
+            err("pu_registers", rec, e)
+            s["skipped"] += 1
+    db.commit()
+
+    # --- esk_masters: матч по full_name ---
+    s = st("esk_masters")
+    fk = {"unit_id": units_map}
+    for rec in tables.get("esk_masters", []):
+        try:
+            fn = rec.get("full_name")
+            existing = db.query(ESKMaster).filter(ESKMaster.full_name == fn).first() if fn else None
+            if existing:
+                masters_map[rec.get("id")] = existing.id
+                s["matched"] += 1
+            else:
+                kwargs = _restore_model_kwargs(ESKMaster, rec, fk, skip=("id",))
+                masters_map[rec.get("id")] = add_record(ESKMaster, kwargs)
+                s["created"] += 1
+        except Exception as e:
+            err("esk_masters", rec, e)
+            s["skipped"] += 1
+    db.commit()
+
+    # --- справочники с матчем по одному полю (name/pattern) ---
+    def restore_lookup(name, model, match_col, target_map):
+        s = st(name)
+        for rec in tables.get(name, []):
+            try:
+                key = rec.get(match_col)
+                existing = (db.query(model).filter(getattr(model, match_col) == key).first()
+                            if key is not None else None)
+                if existing:
+                    target_map[rec.get("id")] = existing.id
+                    s["matched"] += 1
+                else:
+                    kwargs = _restore_model_kwargs(model, rec, {}, skip=("id",))
+                    target_map[rec.get("id")] = add_record(model, kwargs)
+                    s["created"] += 1
+            except Exception as e:
+                err(name, rec, e)
+                s["skipped"] += 1
+        db.commit()
+
+    restore_lookup("va_nominals", VA_Nominal, "name", va_map)
+    restore_lookup("tt_nominals", TT_Nominal, "name", tt_map)
+    restore_lookup("materials", Material, "name", materials_map)
+    restore_lookup("pu_type_reference", PUTypeReference, "pattern", putype_map)
+
+    # --- ttr_res: матч по code ---
+    s = st("ttr_res")
+    for rec in tables.get("ttr_res", []):
+        try:
+            code = rec.get("code")
+            existing = db.query(TTR_RES).filter(TTR_RES.code == code).first() if code else None
+            if existing:
+                ttr_res_map[rec.get("id")] = existing.id
+                s["matched"] += 1
+            else:
+                kwargs = _restore_model_kwargs(TTR_RES, rec, {}, skip=("id",))
+                ttr_res_map[rec.get("id")] = add_record(TTR_RES, kwargs)
+                s["created"] += 1
+        except Exception as e:
+            err("ttr_res", rec, e)
+            s["skipped"] += 1
+    db.commit()
+
+    # --- ttr_esk: матч по lsr_number, иначе по комбинации полей ---
+    s = st("ttr_esk")
+    for rec in tables.get("ttr_esk", []):
+        try:
+            lsr = rec.get("lsr_number")
+            if lsr:
+                existing = db.query(TTR_ESK).filter(TTR_ESK.lsr_number == lsr).first()
+            else:
+                existing = db.query(TTR_ESK).filter(
+                    TTR_ESK.ttr_type == rec.get("ttr_type"),
+                    TTR_ESK.faza == rec.get("faza"),
+                    TTR_ESK.form_factor == rec.get("form_factor"),
+                    TTR_ESK.va_type == rec.get("va_type"),
+                    TTR_ESK.work_type_name == rec.get("work_type_name"),
+                ).first()
+            if existing:
+                ttr_esk_map[rec.get("id")] = existing.id
+                s["matched"] += 1
+            else:
+                kwargs = _restore_model_kwargs(TTR_ESK, rec, {}, skip=("id",))
+                ttr_esk_map[rec.get("id")] = add_record(TTR_ESK, kwargs)
+                s["created"] += 1
+        except Exception as e:
+            err("ttr_esk", rec, e)
+            s["skipped"] += 1
+    db.commit()
+
+    # --- ttr_materials: связки с ремапом, без дублей ---
+    s = st("ttr_materials")
+    for rec in tables.get("ttr_materials", []):
+        try:
+            new_ttr = ttr_res_map.get(rec.get("ttr_res_id"))
+            new_mat = materials_map.get(rec.get("material_id"))
+            if not new_ttr or not new_mat:
+                s["skipped"] += 1
+                continue
+            dup = db.query(TTR_Material).filter(
+                TTR_Material.ttr_res_id == new_ttr,
+                TTR_Material.material_id == new_mat,
+            ).first()
+            if dup:
+                s["matched"] += 1
+                continue
+            add_record(TTR_Material, {
+                "ttr_res_id": new_ttr, "material_id": new_mat,
+                "quantity": rec.get("quantity", 0),
+            })
+            s["created"] += 1
+        except Exception as e:
+            err("ttr_materials", rec, e)
+            s["skipped"] += 1
+    db.commit()
+
+    # --- ttr_pu_types: связки с ремапом, без дублей ---
+    s = st("ttr_pu_types")
+    for rec in tables.get("ttr_pu_types", []):
+        try:
+            new_ttr = ttr_res_map.get(rec.get("ttr_res_id"))
+            new_type = putype_map.get(rec.get("pu_type_id"))
+            if not new_ttr or not new_type:
+                s["skipped"] += 1
+                continue
+            dup = db.query(TTR_PUType).filter(
+                TTR_PUType.ttr_res_id == new_ttr,
+                TTR_PUType.pu_type_id == new_type,
+            ).first()
+            if dup:
+                s["matched"] += 1
+                continue
+            add_record(TTR_PUType, {"ttr_res_id": new_ttr, "pu_type_id": new_type})
+            s["created"] += 1
+        except Exception as e:
+            err("ttr_pu_types", rec, e)
+            s["skipped"] += 1
+    db.commit()
+
+    # --- pu_items: матч по serial_number ---
+    s = st("pu_items")
+    pu_fk = {
+        "register_id": registers_map,
+        "target_unit_id": units_map,
+        "current_unit_id": units_map,
+        "smr_master_id": masters_map,
+        "ttr_ou_id": ttr_res_map,
+        "ttr_ol_id": ttr_res_map,
+        "ttr_or_id": ttr_res_map,
+        "ttr_tt_id": ttr_res_map,
+        "ttr_esk_id": ttr_esk_map,
+        "va_nominal_id": va_map,
+        "tt_nominal_id": tt_map,
+        "approved_by": users_map,
+    }
+    for rec in tables.get("pu_items", []):
+        try:
+            serial = rec.get("serial_number")
+            existing = db.query(PUItem).filter(PUItem.serial_number == serial).first() if serial else None
+            if existing is None:
+                kwargs = _restore_model_kwargs(PUItem, rec, pu_fk, skip=("id",))
+                pu_items_map[rec.get("id")] = add_record(PUItem, kwargs)
+                s["created"] += 1
+            else:
+                # Обновляем только пустые поля (NULL / False-дефолт), не перетирая ручное
+                for col in PUItem.__table__.columns:
+                    name = col.name
+                    if name in ("id", "serial_number"):
+                        continue
+                    current = getattr(existing, name)
+                    if current is not None and not (isinstance(current, bool) and current is False):
+                        continue
+                    if name in pu_fk:
+                        old = rec.get(name)
+                        newval = pu_fk[name].get(old) if old is not None else None
+                    elif name in rec:
+                        newval = _restore_parse_value(col, rec.get(name))
+                    else:
+                        newval = None
+                    if newval is not None:
+                        setattr(existing, name, newval)
+                pu_items_map[rec.get("id")] = existing.id
+                s["matched"] += 1
+        except Exception as e:
+            err("pu_items", rec, e)
+            s["skipped"] += 1
+    db.commit()
+
+    # --- pu_materials: ремап pu_item_id/material_id, без дублей ---
+    s = st("pu_materials")
+    for rec in tables.get("pu_materials", []):
+        try:
+            new_pu = pu_items_map.get(rec.get("pu_item_id"))
+            new_mat = materials_map.get(rec.get("material_id"))
+            if not new_pu or not new_mat:
+                s["skipped"] += 1
+                continue
+            dup = db.query(PUMaterial).filter(
+                PUMaterial.pu_item_id == new_pu,
+                PUMaterial.material_id == new_mat,
+            ).first()
+            if dup:
+                s["matched"] += 1
+                continue
+            add_record(PUMaterial, {
+                "pu_item_id": new_pu, "material_id": new_mat,
+                "quantity": rec.get("quantity", 0), "used": rec.get("used", True),
+            })
+            s["created"] += 1
+        except Exception as e:
+            err("pu_materials", rec, e)
+            s["skipped"] += 1
+    db.commit()
+
+    # --- pu_movements: ремап, дубли по pu_item_id+moved_at пропускаем ---
+    s = st("pu_movements")
+    mv_fk = {
+        "pu_item_id": pu_items_map,
+        "from_unit_id": units_map,
+        "to_unit_id": units_map,
+        "moved_by": users_map,
+    }
+    for rec in tables.get("pu_movements", []):
+        try:
+            new_pu = pu_items_map.get(rec.get("pu_item_id"))
+            if not new_pu:
+                s["skipped"] += 1
+                continue
+            moved_at = _restore_parse_value(PUMovement.__table__.columns["moved_at"], rec.get("moved_at"))
+            if moved_at is not None:
+                dup = db.query(PUMovement).filter(
+                    PUMovement.pu_item_id == new_pu,
+                    PUMovement.moved_at == moved_at,
+                ).first()
+                if dup:
+                    s["matched"] += 1
+                    continue
+            kwargs = _restore_model_kwargs(PUMovement, rec, mv_fk, skip=("id",))
+            add_record(PUMovement, kwargs)
+            s["created"] += 1
+        except Exception as e:
+            err("pu_movements", rec, e)
+            s["skipped"] += 1
+    db.commit()
+
+    # Сводка для существующего фронтового alert (restored.*)
+    def created(name):
+        return stats.get(name, {}).get("created", 0)
+
+    return {
+        "status": "OK",
+        "message": "Полное восстановление завершено",
+        "format": "full",
+        "tables": stats,
+        "errors": errors[:20],
+        "restored": {
+            "pu_items": created("pu_items"),
+            "ttr_res": created("ttr_res"),
+            "ttr_esk": created("ttr_esk"),
+            "materials": created("materials"),
+            "va_nominals": created("va_nominals"),
+            "tt_nominals": created("tt_nominals"),
+        },
+    }
+
+
 @app.post("/api/admin/restore")
 def restore_backup(
     file: UploadFile = File(...),
@@ -2674,7 +3085,12 @@ def restore_backup(
         backup = json.loads(content.decode('utf-8'))
     except Exception as e:
         raise HTTPException(400, f"Ошибка чтения файла: {str(e)}")
-    
+
+    # Полный бэкап оригинального приложения — новый путь с ремапом id по всем 16 таблицам
+    if backup.get("format") == "full":
+        return _restore_full_backup(backup, db)
+
+    # Иначе — старый формат бэкапа, прежняя логика без изменений
     restored = {
         "va_nominals": 0,
         "tt_nominals": 0,

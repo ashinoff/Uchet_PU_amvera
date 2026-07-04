@@ -140,6 +140,16 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-07-04** — `restore_backup` научился принимать ПОЛНЫЙ бэкап оригинального
+  приложения (`format: "full", version: 2`, ключ `tables` со всеми 16 таблицами).
+  Ветка: `if backup.get("format")=="full"` → `_restore_full_backup()`; иначе —
+  старая логика без изменений. Принцип: матч по естественным ключам (code/username/
+  name/pattern/serial_number) + ремап `old_id→new_id` по всем FK (числовые id со
+  старой базы не переносятся). Хелперы `_restore_parse_value` (даты ISO, enum по
+  value) и `_restore_model_kwargs` (генерик по колонкам модели). Запись — в
+  SAVEPOINT (`begin_nested`), ошибки копятся и возвращаются (первые 20). Ответ:
+  `tables{created,matched,skipped}` + `errors` + старый `restored` для фронт-alert.
+  Проверено smoke-тестом на SQLite (ремап, матчинг, идемпотентность).
 - **2026-07-04** — Код администратора (`ADMIN_CODE`) вынесен из `Settings` в
   модульную константу (окружение не переопределяет). Проверка кода убрана из
   `create_backup` и `restore_backup` — бэкап/восстановление теперь только под
