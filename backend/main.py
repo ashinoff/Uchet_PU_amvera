@@ -21,6 +21,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import bcrypt as _bcrypt
 import pandas as pd
 import io
+import gzip
 import json
 import enum
 import re
@@ -3082,6 +3083,8 @@ def restore_backup(
     
     try:
         content = file.file.read()
+        if content[:2] == b"\x1f\x8b":  # gzip magic bytes — распаковываем
+            content = gzip.decompress(content)
         backup = json.loads(content.decode('utf-8'))
     except Exception as e:
         raise HTTPException(400, f"Ошибка чтения файла: {str(e)}")

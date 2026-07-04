@@ -5516,7 +5516,7 @@ function SystemTab() {
       </button>
       <label className="px-4 py-2 bg-orange-500 text-white rounded-lg cursor-pointer hover:bg-orange-600">
         <Icon name="download" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Восстановить из бэкапа
-        <input type="file" accept=".json" onChange={handleRestore} className="hidden" />
+        <input type="file" accept=".json,.gz" onChange={handleRestore} className="hidden" />
       </label>
     </div>
 
