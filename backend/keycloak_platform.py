@@ -3,12 +3,11 @@
 Проверяем JWT платформы по публичным ключам Keycloak (JWKS): подпись, iss,
 exp и azp. У public-клиента `web-desktop` в access-токене aud обычно
 "account", поэтому aud НЕ требуем — вместо этого проверяем azp.
-JWKS кэшируется в процессе (PyJWKClient сам кэширует ключи), Keycloak
-не дёргается на каждый запрос. Сам токен никогда не логируется и не
-сохраняется — в логи попадают только причины отказа.
+JWKS кэшируется в процессе и перечитывается при неизвестном kid или после
+TTL — Keycloak не дёргается на каждый запрос. Сам токен никогда не
+логируется и не сохраняется — только причины отказа.
 
-Зависимости: PyJWT (уже используется в проекте) + cryptography
-(добавить в requirements.txt: `cryptography`).
+Библиотека: python-jose (уже используется в main.py) — новых зависимостей нет.
 
 Переменные окружения (значения по умолчанию — боевые адреса платформы):
   PLATFORM_SSO       — true/false, фиче-флаг (по умолчанию false)
@@ -19,12 +18,12 @@ JWKS кэшируется в процессе (PyJWKClient сам кэшируе
   SVET_ACCESS_ROLE   — realm-роль, дающая доступ к приложению (svet-user)
 """
 import os
-import logging
+import json
+import time
+import urllib.request
+from typing import Optional
 
-import jwt as pyjwt
-from jwt import PyJWKClient, InvalidTokenError
-
-logger = logging.getLogger("platform_sso")
+from jose import JWTError, jwt
 
 PLATFORM_SSO = os.getenv("PLATFORM_SSO", "false").lower() in ("1", "true", "yes")
 KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "https://keycloak-ashinoff.amvera.io").rstrip("/")
@@ -36,30 +35,63 @@ SVET_ACCESS_ROLE = os.getenv("SVET_ACCESS_ROLE", "svet-user")
 KEYCLOAK_ISSUER = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}"
 KEYCLOAK_JWKS_URL = f"{KEYCLOAK_ISSUER}/protocol/openid-connect/certs"
 
-# PyJWKClient кэширует ключи и сам перечитывает JWKS при неизвестном kid.
-_jwk_client = PyJWKClient(KEYCLOAK_JWKS_URL, cache_keys=True, lifespan=3600)
+_JWKS_TTL_SECONDS = 3600
+_jwks_cache: dict = {"keys": None, "fetched_at": 0.0}
 
 
 class TokenError(Exception):
     """Токен не прошёл проверку. Сообщение безопасно логировать (без токена)."""
 
 
+def _fetch_jwks() -> dict:
+    req = urllib.request.Request(KEYCLOAK_JWKS_URL, headers={"Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _get_jwks(force: bool = False) -> dict:
+    now = time.time()
+    stale = (now - _jwks_cache["fetched_at"]) > _JWKS_TTL_SECONDS
+    if force or _jwks_cache["keys"] is None or stale:
+        _jwks_cache["keys"] = _fetch_jwks()
+        _jwks_cache["fetched_at"] = now
+    return _jwks_cache["keys"]
+
+
+def _find_key(kid: str, jwks: dict) -> Optional[dict]:
+    for key in jwks.get("keys", []):
+        if key.get("kid") == kid:
+            return key
+    return None
+
+
 def verify_token(token: str) -> dict:
     """Вернуть проверенные claims или бросить TokenError с безопасной причиной."""
     try:
-        signing_key = _jwk_client.get_signing_key_from_jwt(token)
-    except Exception as exc:  # noqa: BLE001 — сетевые/kid ошибки
-        raise TokenError(f"не удалось получить ключ подписи ({exc.__class__.__name__})")
+        header = jwt.get_unverified_header(token)
+    except JWTError as exc:
+        raise TokenError(f"повреждённый заголовок токена ({exc.__class__.__name__})")
+
+    kid = header.get("kid")
+    if not kid:
+        raise TokenError("в заголовке токена нет kid")
+
+    key = _find_key(kid, _get_jwks())
+    if key is None:
+        # Ключи могли ротироваться — один раз перечитываем JWKS.
+        key = _find_key(kid, _get_jwks(force=True))
+    if key is None:
+        raise TokenError("ключ подписи не найден в JWKS")
 
     try:
-        claims = pyjwt.decode(
+        claims = jwt.decode(
             token,
-            signing_key.key,
-            algorithms=["RS256"],
+            key,
+            algorithms=[header.get("alg", "RS256")],
             issuer=KEYCLOAK_ISSUER,
             options={"verify_aud": False},  # public-клиент: aud обычно "account"
         )
-    except InvalidTokenError as exc:
+    except JWTError as exc:
         # Покрывает плохую подпись / просрочен / не тот issuer.
         raise TokenError(f"невалидный токен ({exc.__class__.__name__})")
 
