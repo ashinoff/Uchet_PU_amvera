@@ -5458,11 +5458,9 @@ function SystemTab() {
   }
 
   const downloadBackup = async () => {
-    const code = prompt('Введите код администратора:')
-    if (!code) return
     setLoadingBackup(true)
     try {
-      const response = await api.get(`/admin/backup?admin_code=${code}`, { responseType: 'blob' })
+      const response = await api.get('/admin/backup', { responseType: 'blob' })
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
@@ -5479,14 +5477,15 @@ function SystemTab() {
   const handleRestore = async (e) => {
   const file = e.target.files[0]
   if (!file) return
-  
-  const code = prompt('ВНИМАНИЕ! Восстановление добавит данные из бэкапа.\n\nВведите код администратора:')
-  if (!code) return
-  
+
+  if (!confirm('ВНИМАНИЕ! Восстановление добавит данные из бэкапа.\n\nПродолжить?')) {
+    e.target.value = ''
+    return
+  }
+
   const formData = new FormData()
   formData.append('file', file)
-  formData.append('admin_code', code)
-  
+
   try {
     const r = await api.post('/admin/restore', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }

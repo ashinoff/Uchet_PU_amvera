@@ -140,6 +140,11 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-07-04** — Код администратора (`ADMIN_CODE`) вынесен из `Settings` в
+  модульную константу (окружение не переопределяет). Проверка кода убрана из
+  `create_backup` и `restore_backup` — бэкап/восстановление теперь только под
+  ролью СУЭ-админа, без кода (и во фронте убраны prompt'ы). На удаляющих операциях
+  (`delete`, `clear-database`) и импортах код оставлен (16 проверок `!= ADMIN_CODE`).
 - **2026-07-04** — Интеграция с платформой SUE_system (Keycloak SSO) + переезд
   Render → Amvera (один Docker-контейнер). Добавлены `/api/auth/platform`,
   CSP-middleware, колонки `users.keycloak_id/email`, раздача фронта из FastAPI,

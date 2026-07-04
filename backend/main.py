@@ -36,11 +36,12 @@ from urllib.parse import quote
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://user:pass@localhost/pu_system"
     SECRET_KEY: str = "your-secret-key-change-me"
-    ADMIN_CODE: str = "2233"
     class Config:
         env_file = ".env"
 
 settings = Settings()
+
+ADMIN_CODE = "2233"  # жёстко зашит, окружение не влияет
 
 # ==================== БАЗА ДАННЫХ ====================
 engine = create_engine(settings.DATABASE_URL)
@@ -1910,7 +1911,7 @@ def auto_fill_faza(admin_code: str = Form(...), db: Session = Depends(get_db), u
     """Массовое автозаполнение фазности по справочнику типов ПУ"""
     if not is_sue_admin(user):
         raise HTTPException(403, "Только СУЭ")
-    if admin_code != settings.ADMIN_CODE:
+    if admin_code != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     
     items = db.query(PUItem).filter(
@@ -1994,7 +1995,7 @@ async def import_formfactor(file: UploadFile = File(...), admin_code: str = Form
     """Массовая загрузка форм-фактора ПУ (сплит/классика)"""
     if not is_sue_admin(user):
         raise HTTPException(403, "Только СУЭ")
-    if admin_code != settings.ADMIN_CODE:
+    if admin_code != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     
     contents = await file.read()
@@ -2074,7 +2075,7 @@ async def move_bulk(
     if not is_esk_admin(user) and not is_sue_admin(user) and not is_oks_admin(user):
         raise HTTPException(403, "Только ЭСК Админ, ОКС Админ или СУЭ")
     
-    if admin_code != settings.ADMIN_CODE:
+    if admin_code != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     
     try:
@@ -2179,7 +2180,7 @@ async def update_types_bulk(
     if not is_sue_admin(user):
         raise HTTPException(403, "Только СУЭ")
     
-    if admin_code != settings.ADMIN_CODE:
+    if admin_code != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     
     try:
@@ -2255,7 +2256,7 @@ def auto_fill_formfactor(admin_code: str = Form(...), db: Session = Depends(get_
     """Массовое автозаполнение форм-фактора по справочнику типов ПУ"""
     if not is_sue_admin(user):
         raise HTTPException(403, "Только СУЭ")
-    if admin_code != settings.ADMIN_CODE:
+    if admin_code != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     
     items = db.query(PUItem).filter(
@@ -2285,7 +2286,7 @@ def delete_items(req: DeleteReq, db: Session = Depends(get_db), user: User = Dep
     """Удаление ПУ - только СУЭ с кодом"""
     if not is_sue_admin(user):
         raise HTTPException(403, "Только СУЭ может удалять ПУ")
-    if req.admin_code != settings.ADMIN_CODE:
+    if req.admin_code != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     
     # Удаляем связанные данные
@@ -2303,7 +2304,7 @@ def clear_database(data: dict, db: Session = Depends(get_db), user: User = Depen
     """Очистка базы данных - только СУЭ с кодом"""
     if not is_sue_admin(user):
         raise HTTPException(403, "Только СУЭ может очищать базу")
-    if data.get("admin_code") != settings.ADMIN_CODE:
+    if data.get("admin_code") != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     
     db.query(PUMaterial).delete()
@@ -2315,12 +2316,10 @@ def clear_database(data: dict, db: Session = Depends(get_db), user: User = Depen
     return {"message": "База очищена"}
 
 @app.get("/api/admin/backup")
-def create_backup(admin_code: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    """Создать бэкап базы в JSON"""
-    if admin_code != settings.ADMIN_CODE:
-        raise HTTPException(403, "Неверный код")
+def create_backup(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Создать бэкап базы в JSON (без кода администратора — достаточно роли СУЭ)"""
     if not is_sue_admin(user):
-        raise HTTPException(403, "Нет доступа")
+        raise HTTPException(403, "Нет доступа: требуется роль СУЭ Администратор")
     
     backup = {
         "created_at": datetime.now().isoformat(),
@@ -2663,15 +2662,12 @@ def export_issues_to_excel(db: Session = Depends(get_db), user: User = Depends(g
 @app.post("/api/admin/restore")
 def restore_backup(
     file: UploadFile = File(...),
-    admin_code: str = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    """Восстановить базу из JSON бэкапа"""
-    if not admin_code or admin_code != settings.ADMIN_CODE:
-        raise HTTPException(403, "Неверный код администратора")
+    """Восстановить базу из JSON бэкапа (без кода администратора — достаточно роли СУЭ)"""
     if not is_sue_admin(user):
-        raise HTTPException(403, "Нет доступа")
+        raise HTTPException(403, "Нет доступа: требуется роль СУЭ Администратор")
     
     try:
         content = file.file.read()
@@ -2846,7 +2842,7 @@ def unlock_item(item_id: int, data: dict, db: Session = Depends(get_db), user: U
     """Разблокировать согласованную карточку (только СУЭ с кодом)"""
     if not is_sue_admin(user):
         raise HTTPException(403, "Только СУЭ может разблокировать")
-    if data.get("admin_code") != settings.ADMIN_CODE:
+    if data.get("admin_code") != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     
     item = db.query(PUItem).filter(PUItem.id == item_id).first()
@@ -3085,7 +3081,7 @@ def update_ttr_res(ttr_id: int, data: dict, db: Session = Depends(get_db), user:
 def delete_ttr_res(ttr_id: int, data: dict = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not is_sue_admin(user):
         raise HTTPException(403, "Нет доступа")
-    if not data or data.get("admin_code") != settings.ADMIN_CODE:
+    if not data or data.get("admin_code") != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     
     # Удаляем связанные материалы
@@ -3098,7 +3094,7 @@ def delete_ttr_res(ttr_id: int, data: dict = None, db: Session = Depends(get_db)
 def delete_material(mat_id: int, data: dict = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not is_sue_admin(user):
         raise HTTPException(403, "Нет доступа")
-    if not data or data.get("admin_code") != settings.ADMIN_CODE:
+    if not data or data.get("admin_code") != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     
     # Удаляем связи с ТТР и ПУ
@@ -3144,7 +3140,7 @@ def update_va_nominal(item_id: int, data: dict, db: Session = Depends(get_db), u
 def delete_va_nominal(item_id: int, data: dict = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not is_sue_admin(user):
         raise HTTPException(403, "Нет доступа")
-    if not data or data.get("admin_code") != settings.ADMIN_CODE:
+    if not data or data.get("admin_code") != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     db.query(VA_Nominal).filter(VA_Nominal.id == item_id).update({"is_active": False})
     db.commit()
@@ -3185,7 +3181,7 @@ def update_tt_nominal(item_id: int, data: dict, db: Session = Depends(get_db), u
 def delete_tt_nominal(item_id: int, data: dict = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not is_sue_admin(user):
         raise HTTPException(403, "Нет доступа")
-    if not data or data.get("admin_code") != settings.ADMIN_CODE:
+    if not data or data.get("admin_code") != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     db.query(TT_Nominal).filter(TT_Nominal.id == item_id).update({"is_active": False})
     db.commit()
@@ -3225,7 +3221,7 @@ def update_ttr_esk(ttr_id: int, data: dict, db: Session = Depends(get_db), user:
 def delete_ttr_esk(ttr_id: int, data: dict = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not is_sue_admin(user):
         raise HTTPException(403, "Нет доступа")
-    if not data or data.get("admin_code") != settings.ADMIN_CODE:
+    if not data or data.get("admin_code") != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     db.query(TTR_ESK).filter(TTR_ESK.id == ttr_id).update({"is_active": False})
     db.commit()
@@ -3622,7 +3618,7 @@ def update_pu_type(type_id: int, data: dict, db: Session = Depends(get_db), user
 def delete_pu_type(type_id: int, data: dict = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not is_sue_admin(user):
         raise HTTPException(403, "Нет доступа")
-    if not data or data.get("admin_code") != settings.ADMIN_CODE:
+    if not data or data.get("admin_code") != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     db.query(PUTypeReference).filter(PUTypeReference.id == type_id).update({"is_active": False})
     db.commit()
@@ -4610,7 +4606,7 @@ def create_request(data: dict, db: Session = Depends(get_db), user: User = Depen
 @app.post("/api/requests/modify")
 def modify_request(data: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Добавить/удалить ПУ из заявки (только с паролем)"""
-    if data.get("admin_code") != settings.ADMIN_CODE:
+    if data.get("admin_code") != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
     
     action = data.get("action")  # "add" или "remove"
@@ -4720,7 +4716,7 @@ def remove_items_from_request(request_number: str, data: dict, db: Session = Dep
     """Удалить выбранные ПУ из заявки. Если заявка пустая — она автоматически исчезает."""
     if not is_sue_admin(user):
         raise HTTPException(403, "Только СУЭ может изменять заявки")
-    if data.get("admin_code") != settings.ADMIN_CODE:
+    if data.get("admin_code") != ADMIN_CODE:
         raise HTTPException(403, "Неверный код администратора")
 
     item_ids = data.get("item_ids", [])
