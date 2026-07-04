@@ -32,29 +32,36 @@
 - lab / lab123 — Лаборатория  
 - energo / energo123 — Энергосервис
 
-## Деплой на Render
+## Деплой на Amvera
 
-### 1. PostgreSQL
-Создай базу, скопируй URL
+Приложение целиком (фронт + API) живёт в **одном Docker-контейнере**: `Dockerfile`
+собирает фронт (`npm run build`) и кладёт `dist` в python-образ, а FastAPI отдаёт и
+API, и статику на порту 8000. Отдельного прокси и `_redirects` больше не нужно —
+фронт и API на одном origin (`baseURL: '/api'`).
 
-### 2. Backend
-- Root: `backend`
-- Build: `pip install -r requirements.txt`
-- Start: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-- Env: `DATABASE_URL`, `SECRET_KEY`
-- После деплоя в Shell: `python main.py` (инициализация БД)
+Единый вход через платформу SUE_system (Keycloak) работает за фиче-флагом
+`PLATFORM_SSO` (по умолчанию OFF — старый вход по логину/паролю продолжает работать).
+Подробности контракта и интеграции — в [PLATFORM_INTEGRATION.md](PLATFORM_INTEGRATION.md).
 
-### 3. Frontend
-- Root: `frontend`
-- Build: `npm install && npm run build`
-- Publish: `dist`
-- Rewrite: `/*` → `/index.html`
+### Настройка
+- Создать приложение (Docker) в Amvera, привязать git-репозиторий (`amvera.yml` и
+  `Dockerfile` уже в корне).
+- PostgreSQL — из маркетплейса Amvera; в приложение передать внутреннюю строку.
+- Переменные окружения:
 
-### Proxy для API
-Создай `frontend/public/_redirects`:
 ```
-/api/*  https://твой-backend.onrender.com/api/:splat  200
+DATABASE_URL=postgresql://...внутренняя строка Amvera Postgres...
+SECRET_KEY=<длинная случайная строка>
+PLATFORM_SSO=true
+KEYCLOAK_URL=https://keycloak-ashinoff.amvera.io
+KEYCLOAK_REALM=platform
+KEYCLOAK_AZP=web-desktop
+PLATFORM_ORIGIN=https://sue-system-ashinoff.amvera.io
+SVET_ACCESS_ROLE=svet-user
 ```
+
+- После деплоя `https://<app>.amvera.io/api/health` должен ответить `{"status":"ok"}`,
+  затем корень — форма логина (fallback-вход по паролю работает).
 
 ## Локальная разработка
 

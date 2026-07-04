@@ -11,7 +11,8 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(r => r, err => {
   if (err.response?.status === 401) {
     localStorage.removeItem('token')
-    window.location.href = '/'
+    if (window.self === window.top) window.location.href = '/'
+    // во фрейме просто отдаём ошибку — AuthProvider покажет логин/дождётся токена
   }
   return Promise.reject(err)
 })

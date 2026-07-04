@@ -5,11 +5,25 @@ import api from './api'
 
 const AuthContext = createContext(null)
 
+// Origin платформы, встраивающей приложение в iframe (единый вход)
+const PLATFORM_ORIGIN = import.meta.env.VITE_PLATFORM_ORIGIN || 'https://sue-system-ashinoff.amvera.io'
+// Мы внутри iframe (то есть, вероятно, внутри платформы)?
+const EMBEDDED = typeof window !== 'undefined' && window.self !== window.top
+
 function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  // Пока ждём/обмениваем токен платформы — показываем загрузку, а не форму логина
+  const [ssoPending, setSsoPending] = useState(EMBEDDED)
 
   useEffect(() => {
+    // Внутри iframe не доверяем старой сессии из localStorage — ждём свежий
+    // токен платформы (иначе мигнёт предыдущий пользователь)
+    if (EMBEDDED) {
+      localStorage.removeItem('token')
+      setLoading(false)
+      return
+    }
     if (localStorage.getItem('token')) {
       api.get('/auth/me')
         .then(r => setUser(r.data))
@@ -19,6 +33,43 @@ function AuthProvider({ children }) {
         })
         .finally(() => setLoading(false))
     } else setLoading(false)
+  }, [])
+
+  // Обмен Keycloak-токена платформы на свою сессию.
+  // Идём НЕ через api (его 401-интерсептор редиректит на '/'), а чистым fetch.
+  const exchangePlatformToken = async (kcToken) => {
+    setSsoPending(true)
+    try {
+      const resp = await fetch('/api/auth/platform', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${kcToken}` },
+      })
+      if (!resp.ok) throw new Error('sso failed')
+      const data = await resp.json()
+      localStorage.setItem('token', data.access_token)
+      const me = await api.get('/auth/me')
+      setUser(me.data)
+    } catch {
+      localStorage.removeItem('token')
+      setUser(null) // упадём на обычную форму логина
+    } finally {
+      setSsoPending(false)
+    }
+  }
+
+  useEffect(() => {
+    const onMessage = (event) => {
+      if (event.origin !== PLATFORM_ORIGIN) return // доверяем только платформе
+      const d = event.data
+      if (!d || d.type !== 'platform-auth' || !d.token) return
+      exchangePlatformToken(d.token)
+    }
+    window.addEventListener('message', onMessage)
+    // Сообщаем платформе, что готовы принять токен (AppFrame отвечает на app-ready)
+    if (EMBEDDED) window.parent.postMessage({ type: 'app-ready' }, PLATFORM_ORIGIN)
+    // Если встроены, но токен так и не пришёл — через 5с показываем обычный логин
+    const timer = EMBEDDED ? setTimeout(() => setSsoPending(false), 5000) : null
+    return () => { window.removeEventListener('message', onMessage); if (timer) clearTimeout(timer) }
   }, [])
 
   const login = async (username, password) => {
@@ -47,8 +98,8 @@ function AuthProvider({ children }) {
   const canManageReferences = isSueAdmin
   const canManageMasters = isEskAdmin
 
-  return <AuthContext.Provider value={{ 
-    user, loading, login, logout, 
+  return <AuthContext.Provider value={{
+    user, loading, ssoPending, login, logout,
     isSueAdmin, isLabUser, isEskAdmin, isResUser, isEskUser, isOksAdmin, isOksUser,
     canUpload, canMove, canDelete, canManageUsers, canApprove, canCreateTZ, canManageReferences, canManageMasters
   }}>{children}</AuthContext.Provider>
@@ -196,7 +247,7 @@ export default function App() {
 }
 
 function Main() {
-  const { user, loading } = useAuth()
+  const { user, loading, ssoPending } = useAuth()
   const [page, setPage] = useState('home')
   const [puPreset, setPuPreset] = useState(null)
 
@@ -205,7 +256,7 @@ function Main() {
   // Открыть список ПУ с заранее выставленными фильтрами (клик по цифре на главной)
   const openPU = (preset) => { setPuPreset(preset); setPage('pu') }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><RossetiLoader /></div>
+  if (loading || ssoPending) return <div className="min-h-screen flex items-center justify-center"><RossetiLoader /></div>
   if (!user) return <LoginPage />
 
   return (

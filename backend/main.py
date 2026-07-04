@@ -2,8 +2,12 @@
 Система учета ПУ - Backend
 ЭТАП 1: Базовая структура
 """
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Query
+import os
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import keycloak_platform as kc
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Enum as SQLEnum, Float, Date, or_
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship, joinedload
@@ -113,6 +117,8 @@ class User(Base):
     unit_id = Column(Integer, ForeignKey("units.id"))
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
+    keycloak_id = Column(String(64), unique=True, nullable=True, index=True)
+    email = Column(String(200), nullable=True)
     role = relationship("Role")
     unit = relationship("Unit")
 
@@ -594,6 +600,19 @@ class PUCardUpdate(BaseModel):
 app = FastAPI(title="Система учета ПУ")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
+@app.middleware("http")
+async def frame_ancestors_header(request, call_next):
+    """Разрешаем ТОЛЬКО платформе встраивать приложение в iframe.
+    Заголовок ставится на каждый ответ (включая index.html и статику).
+    Легаси X-Frame-Options убираем — frame-ancestors его заменяет."""
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = (
+        f"frame-ancestors 'self' {kc.PLATFORM_ORIGIN}"
+    )
+    if "x-frame-options" in response.headers:
+        del response.headers["X-Frame-Options"]
+    return response
+
 # Создание/миграция схемы выполняется в ensure_db_schema() при старте (см. конец файла)
 
 # ==================== API: AUTH ====================
@@ -622,8 +641,8 @@ def check_contract_duplicate(
         }
     return {"duplicate": False}
 
-@app.get("/")
-def root():
+@app.get("/api/health")
+def health():
     return {"status": "ok", "message": "Система учета ПУ v2"}
 
 @app.post("/api/auth/login", response_model=TokenResp)
@@ -631,6 +650,55 @@ def login(req: LoginReq, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == req.username).first()
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(401, "Неверный логин или пароль")
+    return {"access_token": create_token(user.id)}
+
+@app.post("/api/auth/platform", response_model=TokenResp)
+def platform_login(request: Request, db: Session = Depends(get_db)):
+    """Единый вход: обмен Keycloak-токена платформы на сессию Светлячка.
+
+    Проверяем токен по JWKS (подпись/iss/exp/azp), требуем realm-роль
+    svet-user, находим локального пользователя по keycloak_id, при первом
+    входе разово привязываем по username == preferred_username.
+    Роль и подразделение берутся из своей БД. Токен не логируем.
+    """
+    unauthorized = HTTPException(401, "Не удалось проверить токен платформы")
+    if not kc.PLATFORM_SSO:
+        raise unauthorized
+
+    header = request.headers.get("Authorization", "")
+    if not header.lower().startswith("bearer "):
+        raise unauthorized
+    token = header.split(" ", 1)[1].strip()
+
+    try:
+        claims = kc.verify_token(token)
+    except kc.TokenError as exc:
+        print(f"Platform SSO 401: {exc}")  # причина — да, токен — никогда
+        raise unauthorized
+
+    ident = kc.identity_from_claims(claims)
+    if not ident["keycloak_id"]:
+        raise unauthorized
+    if not kc.has_svet_access(ident["roles"]):
+        raise HTTPException(403, "Нет доступа к приложению")
+
+    user = db.query(User).filter(User.keycloak_id == ident["keycloak_id"]).first()
+    if user is None and ident["username"]:
+        # Первый вход: разовая привязка существующей учётки по логину
+        user = db.query(User).filter(User.username == ident["username"]).first()
+        if user is not None and not user.keycloak_id:
+            user.keycloak_id = ident["keycloak_id"]
+            if ident["email"] and not user.email:
+                user.email = ident["email"]
+            db.commit()
+            print(f"Platform SSO: привязан пользователь id={user.id}")
+
+    if user is None:
+        print("Platform SSO 401: пользователь не найден ни по keycloak_id, ни по username")
+        raise unauthorized
+    if not user.is_active:
+        raise HTTPException(403, "Учетная запись заблокирована")
+
     return {"access_token": create_token(user.id)}
 
 @app.get("/api/auth/me", response_model=UserResp)
@@ -5301,6 +5369,20 @@ def ensure_db_schema():
             # Не для PostgreSQL (например SQLite) — enum-типов нет, пропускаем
             print(f"  ℹ️ Пропуск миграции enum: {e}")
         
+        # 1.6 Колонки единого входа через платформу (Keycloak SSO).
+        # nullable, IF NOT EXISTS — старые записи не ломаются, alembic не нужен.
+        try:
+            with engine.connect() as conn:
+                conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS keycloak_id VARCHAR(64)"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(200)"))
+                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_keycloak_id ON users (keycloak_id)"))
+                print("  ➕ Колонки платформы (keycloak_id, email) проверены")
+        except Exception as e:
+            # Не для PostgreSQL (SQLite не знает ADD COLUMN IF NOT EXISTS) —
+            # там колонки добавит секция 2 ниже по модели.
+            print(f"  ℹ️ Пропуск миграции колонок платформы: {e}")
+
         # 2. Добавляем недостающие колонки в существующие таблицы
         for table_name, table in Base.metadata.tables.items():
             if table_name not in existing_tables:
@@ -5375,3 +5457,22 @@ def ensure_db_schema():
 
 ensure_db_schema()
 init_db()
+
+# ==================== РАЗДАЧА ФРОНТЕНДА (один контейнер) ====================
+# Объявлено в самом конце — после всех API-роутов, чтобы SPA catch-all не
+# перехватывал /api/... (они матчатся раньше него).
+FRONTEND_DIST = os.getenv("FRONTEND_DIST", os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+FRONTEND_DIST = os.path.abspath(FRONTEND_DIST)
+
+if os.path.isdir(FRONTEND_DIST):
+    assets_dir = os.path.join(FRONTEND_DIST, "assets")
+    if os.path.isdir(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{full_path:path}")
+    def spa_fallback(full_path: str):
+        # Любой не-API путь -> файл из dist, иначе index.html (SPA-роутинг)
+        candidate = os.path.join(FRONTEND_DIST, full_path)
+        if full_path and os.path.isfile(candidate):
+            return FileResponse(candidate)
+        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
