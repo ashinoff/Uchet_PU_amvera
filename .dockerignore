@@ -1,0 +1,12 @@
+node_modules
+.venv
+venv
+*.db
+.env
+dist
+__pycache__
+*.pyc
+.git
+.claude
+.idea
+.vscode
