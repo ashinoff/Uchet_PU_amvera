@@ -4399,12 +4399,13 @@ function UsersTab() {
 
       <div className="bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left">Логин</th><th className="px-4 py-3 text-left">ФИО</th><th className="px-4 py-3 text-left">Роль</th><th className="px-4 py-3 text-left">Подразделение</th><th className="px-4 py-3 text-left">Статус</th><th className="w-24"></th></tr></thead>
+          <thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left">Логин</th><th className="px-4 py-3 text-left">ФИО</th><th className="px-4 py-3 text-left">Email</th><th className="px-4 py-3 text-left">Роль</th><th className="px-4 py-3 text-left">Подразделение</th><th className="px-4 py-3 text-left">Статус</th><th className="w-24"></th></tr></thead>
           <tbody>
             {users.map(u => (
               <tr key={u.id} className={`border-t ${!u.is_active ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3 font-medium">{u.username}</td>
                 <td className="px-4 py-3">{u.full_name}</td>
+                <td className="px-4 py-3">{u.email || '—'}</td>
                 <td className="px-4 py-3">{u.role?.name}</td>
                 <td className="px-4 py-3">{u.unit?.name || '—'}</td>
                 <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs ${u.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100'}`}>{u.is_active ? 'Активен' : 'Неактивен'}</span></td>
@@ -4424,7 +4425,7 @@ function UsersTab() {
 }
 
 function UserModal({ user, roles, units, onClose, onSave }) {
-  const [form, setForm] = useState({ username: user?.username || '', password: '', full_name: user?.full_name || '', role_id: user?.role?.id || '', unit_id: user?.unit?.id || '' })
+  const [form, setForm] = useState({ username: user?.username || '', password: '', full_name: user?.full_name || '', email: user?.email || '', role_id: user?.role?.id || '', unit_id: user?.unit?.id || '' })
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
@@ -4433,6 +4434,7 @@ function UserModal({ user, roles, units, onClose, onSave }) {
           <input type="text" placeholder="Логин" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} disabled={!!user} className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100" />
           {!user && <input type="password" placeholder="Пароль" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />}
           <input type="text" placeholder="ФИО" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />
+          <input type="email" placeholder="Email (для единого входа через платформу)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />
           <select value={form.role_id} onChange={e => setForm({ ...form, role_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
             <option value="">Выберите роль...</option>
             {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
