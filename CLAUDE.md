@@ -145,6 +145,15 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-07-08** — `GET /api/platform/badge` — счётчик уведомлений для бейджа
+  приложения на платформе. Токен Keycloak проверяется как в `/api/auth/platform`
+  (401 при выкл. SSO/невалидном токене); пользователь по `keycloak_id`, затем
+  `username`; не найден/неактивен → `{"count":0}`. `count` = сумма «требует
+  действия» по роли (хелпер `_platform_badge_count`, только `.count()`):
+  согласование (РЭС=свои ЭСК/ОКС PENDING; СУЭ=все PENDING) + техзадания (СУЭ=ПУ
+  РЭС, ОКС=ПУ ОКС; без `tz_number`, статусы TECHPRIS/ZAMENA/IZHC) + заявки ЭСК
+  (APPROVED без `request_number`, видимые юниты). Коммит `957e420`. CORS не
+  трогали — уже `allow_origins=["*"]`.
 - **2026-07-08** — ✅ Единый вход РАБОТАЕТ в проде (проверено). Привязка
   пользователя платформы сменена с `username` на **email** (`func.lower`
   регистронезависимо) — email как единый ключ во всех приложениях. Коммит `a5d4ddc`.
