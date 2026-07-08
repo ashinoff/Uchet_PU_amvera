@@ -97,11 +97,16 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
   логируется и не сохраняется — только причины отказа.**
 - **`POST /api/auth/platform`** — обмен Keycloak-токена (из заголовка Authorization)
   на свой JWT. Пользователь ищется по `keycloak_id`; при первом входе — разовая
-  привязка существующей учётки по `username == preferred_username` (email у юзеров
-  нет). Не нашли — 401, авто-создания нет. Нет роли `svet-user` — 403.
+  привязка существующей учётки по **email** (`func.lower(email)` из токена ==
+  `func.lower(users.email)`, регистронезависимо). email — единый ключ пользователя во
+  всех приложениях платформы. Не нашли — 401, авто-создания нет. Нет роли
+  `svet-user` — 403.
 - **Ключевая идея:** Keycloak даёт только личность + право входа; роль и `unit_id`
-  берутся из БД Светлячка. Чтобы дать доступ: в Keycloak логин + роль `svet-user`,
-  в Светлячке — учётка с тем же логином и нужной ролью/подразделением.
+  берутся из БД Светлячка. Чтобы дать доступ: в Keycloak — учётка с email + роль
+  `svet-user`; в Светлячке — учётка с ТЕМ ЖЕ email и нужной ролью/подразделением.
+- **Email задаётся в UI:** экран Настройки → Пользователи (форма + колонка Email).
+  `create_user` принимает `email`, `get_users` его отдаёт, `update_user` — через
+  generic `setattr`.
 - **CSP-middleware** `frame_ancestors_header` — разрешает встраивание в iframe
   только `PLATFORM_ORIGIN`, снимает легаси `X-Frame-Options`.
 - **Фронт:** `AuthProvider` внутри iframe (`EMBEDDED = window.self !== window.top`)
@@ -140,6 +145,13 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-07-08** — Единый вход: привязка пользователя платформы сменена с
+  `username` на **email** (`func.lower` регистронезависимо) — email как единый ключ
+  во всех приложениях. Коммит `a5d4ddc`. Следом добавлено управление email в UI:
+  форма и колонка «Email» на экране Пользователи, `create_user`/`get_users`
+  подхватывают email (коммит `e8d9fa0`). Чтобы автологин заработал: на Amvera
+  выставить `PLATFORM_SSO=true`, у пользователей проставить email = email в Keycloak,
+  пересобрать бэкенд.
 - **2026-07-04** — `restore_backup` научился принимать ПОЛНЫЙ бэкап оригинального
   приложения (`format: "full", version: 2`, ключ `tables` со всеми 16 таблицами).
   Ветка: `if backup.get("format")=="full"` → `_restore_full_backup()`; иначе —
