@@ -660,7 +660,7 @@ def platform_login(request: Request, db: Session = Depends(get_db)):
 
     Проверяем токен по JWKS (подпись/iss/exp/azp), требуем realm-роль
     svet-user, находим локального пользователя по keycloak_id, при первом
-    входе разово привязываем по username == preferred_username.
+    входе разово привязываем по email (единый ключ во всех приложениях).
     Роль и подразделение берутся из своей БД. Токен не логируем.
     """
     unauthorized = HTTPException(401, "Не удалось проверить токен платформы")
@@ -685,15 +685,17 @@ def platform_login(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(403, "Нет доступа к приложению")
 
     user = db.query(User).filter(User.keycloak_id == ident["keycloak_id"]).first()
-    if user is None and ident["username"]:
-        # Первый вход: разовая привязка существующей учётки по логину
-        user = db.query(User).filter(User.username == ident["username"]).first()
+    if user is None and ident["email"]:
+        # Первый вход: разовая привязка существующей учётки по email
+        # (email — единый ключ пользователя во всех приложениях платформы).
+        # Сравнение регистронезависимое.
+        user = db.query(User).filter(
+            func.lower(User.email) == ident["email"].lower()
+        ).first()
         if user is not None and not user.keycloak_id:
             user.keycloak_id = ident["keycloak_id"]
-            if ident["email"] and not user.email:
-                user.email = ident["email"]
             db.commit()
-            print(f"Platform SSO: привязан пользователь id={user.id}")
+            print(f"Platform SSO: привязан пользователь id={user.id} по email")
 
     if user is None:
         print("Platform SSO 401: пользователь не найден ни по keycloak_id, ни по username")
