@@ -705,6 +705,94 @@ def platform_login(request: Request, db: Session = Depends(get_db)):
 
     return {"access_token": create_token(user.id)}
 
+def _platform_badge_count(user: User, db: Session) -> int:
+    """Сколько элементов требует действия от пользователя — по его роли.
+
+    Считаем ровно то, что приложение показывает как «требует внимания»:
+    согласование (РЭС/СУЭ), техзадания (СУЭ/ОКС), заявки ЭСК (ЭСК).
+    Только count-запросы — без выгрузки списков.
+    """
+    total = 0
+
+    # Согласование: РЭС — свои ЭСК/ОКС на PENDING; СУЭ-админ — все PENDING.
+    if is_res_user(user):
+        if user.unit and user.unit.code:
+            base = user.unit.code.replace("RES_", "")
+            target_ids = [u.id for u in db.query(Unit.id).filter(
+                Unit.code.in_([f"ESK_{base}", f"OKS_{base}"])
+            ).all()]
+            if target_ids:
+                total += db.query(PUItem).filter(
+                    PUItem.current_unit_id.in_(target_ids),
+                    PUItem.approval_status == ApprovalStatus.PENDING,
+                ).count()
+    elif is_sue_admin(user):
+        total += db.query(PUItem).filter(
+            PUItem.approval_status == ApprovalStatus.PENDING,
+        ).count()
+
+    # Техзадания: СУЭ-админ (ПУ РЭС) и ОКС-админ (ПУ ОКС) — ПУ без ТЗ
+    # в статусах TECHPRIS/ZAMENA/IZHC.
+    if is_sue_admin(user) or is_oks_admin(user):
+        if is_oks_admin(user):
+            scope_units = db.query(Unit.id).filter(
+                Unit.unit_type.in_([UnitType.OKS, UnitType.OKS_UNIT])
+            )
+        else:
+            scope_units = db.query(Unit.id).filter(Unit.unit_type == UnitType.RES)
+        total += db.query(PUItem).filter(
+            PUItem.status.in_([PUStatus.TECHPRIS, PUStatus.ZAMENA, PUStatus.IZHC]),
+            (PUItem.tz_number == None) | (PUItem.tz_number == ""),
+            PUItem.current_unit_id.in_(scope_units),
+        ).count()
+
+    # Заявки ЭСК: ЭСК-админ/пользователь — согласованные ПУ (APPROVED) без
+    # заявки в пределах видимых подразделений.
+    if is_esk_admin(user) or is_esk_user(user):
+        visible = get_visible_units(user, db)
+        if visible:
+            total += db.query(PUItem).filter(
+                PUItem.approval_status == ApprovalStatus.APPROVED,
+                (PUItem.request_number == None) | (PUItem.request_number == ""),
+                PUItem.current_unit_id.in_(visible),
+            ).count()
+
+    return total
+
+@app.get("/api/platform/badge")
+def platform_badge(request: Request, db: Session = Depends(get_db)):
+    """Счётчик уведомлений для бейджа приложения на платформе.
+
+    Токен платформы (Keycloak) проверяется как в /api/auth/platform. Возвращает
+    {"count": N} — сумму элементов, требующих действия от роли пользователя.
+    Быстро: только count-запросы, без выгрузки списков.
+    """
+    unauthorized = HTTPException(401, "Не удалось проверить токен платформы")
+    if not kc.PLATFORM_SSO:
+        raise unauthorized
+    header = request.headers.get("Authorization", "")
+    if not header.lower().startswith("bearer "):
+        raise unauthorized
+    token = header.split(" ", 1)[1].strip()
+    try:
+        claims = kc.verify_token(token)
+    except kc.TokenError:
+        raise unauthorized
+
+    ident = kc.identity_from_claims(claims)
+    if not ident["keycloak_id"]:
+        raise unauthorized
+
+    # Локальная учётка: по keycloak_id, затем по username (== preferred_username).
+    # Без создания и без привязки.
+    user = db.query(User).filter(User.keycloak_id == ident["keycloak_id"]).first()
+    if user is None and ident.get("username"):
+        user = db.query(User).filter(User.username == ident["username"]).first()
+    if user is None or not user.is_active:
+        return {"count": 0}
+
+    return {"count": _platform_badge_count(user, db)}
+
 @app.get("/api/auth/me", response_model=UserResp)
 def get_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return UserResp(
