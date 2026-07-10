@@ -172,6 +172,8 @@ class PUItem(Base):
     smr_executor = Column(String(20))  # РСК или ЭСК
     smr_date = Column(Date)  # Дата выполнения СМР
     smr_master_id = Column(Integer, ForeignKey("esk_masters.id"))  # Мастер ЭСК
+    smr_method = Column(String(20))  # Способ СМР для ОКС: "Хоз способ" / "Подрядчик"
+    contractor_id = Column(Integer, ForeignKey("contractors.id"))  # Подрядчик (только для ОКС)
     
     # ТТР для РЭС
     ttr_ou_id = Column(Integer, ForeignKey("ttr_res.id"))  # ТТР организации учета
@@ -182,6 +184,7 @@ class PUItem(Base):
     # ТТР для ЭСК
     # Параметры СМР/ЛСР для ЭСК
     form_factor = Column(String(20))  # split, classic (автоподтяжка)
+    connection_type = Column(String(20))  # Тип включения: direct (прямое) / transformer (ТТ)
     trubostoyka = Column(Boolean, default=False)  # Да/Нет
     va_type = Column(String(20))  # opona, fasad, trubostoyka
     ttr_esk_id = Column(Integer, ForeignKey("ttr_esk.id"))
@@ -234,6 +237,7 @@ class PUItem(Base):
     ttr_esk = relationship("TTR_ESK", foreign_keys=[ttr_esk_id])
     va_nominal = relationship("VA_Nominal", foreign_keys=[va_nominal_id])
     tt_nominal = relationship("TT_Nominal", foreign_keys=[tt_nominal_id])
+    contractor = relationship("Contractor", foreign_keys=[contractor_id])
 
 class PUMovement(Base):
     """История перемещений"""
@@ -323,6 +327,7 @@ class PUTypeReference(Base):
     faza = Column(String(20))  # 1ф, 3ф
     voltage = Column(String(20))
     form_factor = Column(String(20))  # split, classic
+    connection_type = Column(String(20))  # direct (прямое) / transformer (ТТ включение)
     is_active = Column(Boolean, default=True)
 
 
@@ -339,6 +344,14 @@ class TT_Nominal(Base):
     __tablename__ = "tt_nominals"
     id = Column(Integer, primary_key=True)
     name = Column(String(100))  # Например: "100/5", "200/5", "400/5"
+    is_active = Column(Boolean, default=True)
+
+
+class Contractor(Base):
+    """Справочник подрядчиков (СМР ОКС)"""
+    __tablename__ = "contractors"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(200))
     is_active = Column(Boolean, default=True)
 
 # ==================== АВТОРИЗАЦИЯ ====================
@@ -450,6 +463,8 @@ def detect_pu_type_params(pu_type: str, db: Session) -> dict:
             result['voltage'] = p.voltage
         if p.form_factor:
             result['form_factor'] = p.form_factor
+        if p.connection_type:
+            result['connection_type'] = p.connection_type
         return result
     
     # 1) Точное вхождение нормализованной строки
@@ -572,6 +587,8 @@ class PUCardUpdate(BaseModel):
     smr_executor: Optional[str] = None
     smr_date: Optional[date] = None
     smr_master_id: Optional[int] = None
+    smr_method: Optional[str] = None
+    contractor_id: Optional[int] = None
     ttr_ou_id: Optional[int] = None
     ttr_ol_id: Optional[int] = None
     ttr_or_id: Optional[int] = None
@@ -579,6 +596,7 @@ class PUCardUpdate(BaseModel):
     ttr_esk_id: Optional[int] = None
     trubostoyka: Optional[bool] = None
     form_factor: Optional[str] = None
+    connection_type: Optional[str] = None
     va_type: Optional[str] = None
     lsr_number: Optional[str] = None
     price_no_nds: Optional[float] = None
@@ -1101,26 +1119,41 @@ def get_analysis(
             def to_str(v):
                 return v.value if hasattr(v, 'value') else v
             
+            # Эффективная фазность: ПУ трансформаторного включения (классика)
+            # попадают в колонку 3фтт независимо от заполненной фазы —
+            # так признак учитывается и на неустановленных ПУ (на складе)
+            def eff_faza(ff, fz, conn):
+                if ff == 'classic' and conn == 'transformer':
+                    return '3фтт'
+                return fz
+
+            def build_map(rows):
+                m = {}
+                for k1, ff, fz, conn, c in rows:
+                    key = (to_str(k1), ff, eff_faza(ff, fz, conn))
+                    m[key] = m.get(key, 0) + c
+                return m
+
             status_rows = db.query(
-                PUItem.status, PUItem.form_factor, PUItem.faza, func.count(PUItem.id)
+                PUItem.status, PUItem.form_factor, PUItem.faza, PUItem.connection_type, func.count(PUItem.id)
             ).filter(*base_filters).group_by(
-                PUItem.status, PUItem.form_factor, PUItem.faza
+                PUItem.status, PUItem.form_factor, PUItem.faza, PUItem.connection_type
             ).all()
-            status_map = {(to_str(s), ff, fz): c for s, ff, fz, c in status_rows}
+            status_map = build_map(status_rows)
             
             actioned_rows = db.query(
-                PUItem.status, PUItem.form_factor, PUItem.faza, func.count(PUItem.id)
+                PUItem.status, PUItem.form_factor, PUItem.faza, PUItem.connection_type, func.count(PUItem.id)
             ).filter(*base_filters, actioned_cond).group_by(
-                PUItem.status, PUItem.form_factor, PUItem.faza
+                PUItem.status, PUItem.form_factor, PUItem.faza, PUItem.connection_type
             ).all()
-            actioned_map = {(to_str(s), ff, fz): c for s, ff, fz, c in actioned_rows}
+            actioned_map = build_map(actioned_rows)
             
             sklad_rows = db.query(
-                PUItem.naznachenie, PUItem.form_factor, PUItem.faza, func.count(PUItem.id)
+                PUItem.naznachenie, PUItem.form_factor, PUItem.faza, PUItem.connection_type, func.count(PUItem.id)
             ).filter(*base_filters, PUItem.status == PUStatus.SKLAD).group_by(
-                PUItem.naznachenie, PUItem.form_factor, PUItem.faza
+                PUItem.naznachenie, PUItem.form_factor, PUItem.faza, PUItem.connection_type
             ).all()
-            sklad_map = {(naz, ff, fz): c for naz, ff, fz, c in sklad_rows}
+            sklad_map = build_map(sklad_rows)
             
             # Детальная разбивка (та же логика и те же цифры, что и раньше):
             # total: склад → по назначению + не-склад → по статусу
@@ -1374,6 +1407,14 @@ def export_pu_items(
         elif not is_sue_admin(user):
             q = q.filter(PUItem.current_unit_id.in_(visible))
         
+        # ОКС: выгрузка строго ограничена ПУ подразделений ОКС
+        # (участок — только своё подразделение, голова — все участки ОКС)
+        if is_oks_user(user):
+            q = q.filter(PUItem.current_unit_id == user.unit_id)
+        elif is_oks_admin(user):
+            oks_only = db.query(Unit.id).filter(Unit.unit_type.in_([UnitType.OKS, UnitType.OKS_UNIT]))
+            q = q.filter(PUItem.current_unit_id.in_(oks_only))
+        
         if search:
             q = q.filter(PUItem.serial_number.ilike(f"%{search}%"))
         if status:
@@ -1386,6 +1427,9 @@ def export_pu_items(
         elif unit_type_filter == 'esk':
             esk_units = db.query(Unit.id).filter(Unit.unit_type.in_([UnitType.ESK, UnitType.ESK_UNIT]))
             q = q.filter(PUItem.current_unit_id.in_(esk_units))
+        elif unit_type_filter == 'oks':
+            oks_units = db.query(Unit.id).filter(Unit.unit_type.in_([UnitType.OKS, UnitType.OKS_UNIT]))
+            q = q.filter(PUItem.current_unit_id.in_(oks_units))
         if contract:
             q = q.filter(PUItem.contract_number.ilike(f"%{contract}%"))
         if ls:
@@ -1619,6 +1663,9 @@ def get_item_detail(item_id: int, db: Session = Depends(get_db), user: User = De
         "smr_executor": item.smr_executor,
         "smr_date": item.smr_date.isoformat() if item.smr_date else None,
         "smr_master_id": item.smr_master_id,
+        "smr_method": item.smr_method,
+        "contractor_id": item.contractor_id,
+        "connection_type": item.connection_type,
         "ttr_ou_id": item.ttr_ou_id,
         "ttr_ol_id": item.ttr_ol_id,
         "ttr_or_id": item.ttr_or_id,
@@ -1702,6 +1749,8 @@ def get_item_review(item_id: int, db: Session = Depends(get_db), user: User = De
         "smr_executor": item.smr_executor,
         "smr_date": item.smr_date.isoformat() if item.smr_date else None,
         "smr_master": master_name,
+        "smr_method": item.smr_method,
+        "contractor": (item.contractor.name if item.contractor else None),
         "trubostoyka": item.trubostoyka,
         # ТТР РЭС (коды)
         "ttr_ou": ttr_label(item.ttr_ou_id),
@@ -1769,13 +1818,16 @@ def update_item(item_id: int, data: PUCardUpdate, db: Session = Depends(get_db),
                 data.faza = detected['faza']
             if not data.voltage and not item.voltage and detected.get('voltage'):
                 data.voltage = detected['voltage']
+            if not data.connection_type and not item.connection_type and detected.get('connection_type'):
+                data.connection_type = detected['connection_type']
     
     # Запоминаем старые ТТР для очистки материалов
     old_ttr_ids = {item.ttr_ou_id, item.ttr_ol_id, item.ttr_or_id, item.ttr_tt_id}
     
     # Обновляем поля (для СУЭ админа разрешаем запись None — сброс полей)
     nullable_fields = {'ttr_ou_id', 'ttr_ol_id', 'ttr_or_id', 'ttr_tt_id', 'ttr_esk_id',
-                       'smr_executor', 'smr_date', 'smr_master_id', 'contract_number', 
+                       'smr_executor', 'smr_date', 'smr_master_id', 'smr_method', 'contractor_id',
+                       'connection_type', 'contract_number', 
                        'contract_date', 'plan_date', 'consumer', 'address', 'ls_number',
                        'va_nominal_id', 'tt_nominal_id', 'power', 'form_factor', 'va_type',
                        'lsr_number', 'lsr_va', 'lsr_truba',
@@ -2373,6 +2425,36 @@ def auto_fill_formfactor(admin_code: str = Form(...), db: Session = Depends(get_
         "not_found_pu": not_found_patterns[:30]
     }
 
+@app.post("/api/pu/auto-fill-connection")
+def auto_fill_connection(admin_code: str = Form(...), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Массовое автозаполнение типа включения (прямое/ТТ) по справочнику типов ПУ"""
+    if not is_sue_admin(user):
+        raise HTTPException(403, "Только СУЭ")
+    if admin_code != ADMIN_CODE:
+        raise HTTPException(403, "Неверный код администратора")
+
+    items = db.query(PUItem).filter(
+        PUItem.connection_type == None,
+        PUItem.pu_type != None
+    ).all()
+
+    updated = 0
+    not_found_patterns = []  # ПУ без совпадения по паттерну или без признака в справочнике
+    for item in items:
+        detected = detect_pu_type_params(item.pu_type, db)
+        if detected.get('connection_type'):
+            item.connection_type = detected['connection_type']
+            updated += 1
+        else:
+            not_found_patterns.append(f"{item.serial_number} ({item.pu_type[:50]})")
+
+    db.commit()
+    return {
+        "updated": updated,
+        "total_checked": len(items),
+        "not_found_pu": not_found_patterns[:30]
+    }
+
 @app.post("/api/pu/delete")
 def delete_items(req: DeleteReq, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Удаление ПУ - только СУЭ с кодом"""
@@ -2407,88 +2489,72 @@ def clear_database(data: dict, db: Session = Depends(get_db), user: User = Depen
     
     return {"message": "База очищена"}
 
+def _serialize_row(obj):
+    """Все колонки модели -> dict. Даты/enum -> строки."""
+    out = {}
+    for col in obj.__table__.columns:
+        val = getattr(obj, col.name)
+        if isinstance(val, (datetime, date)):
+            val = val.isoformat()
+        elif isinstance(val, enum.Enum):
+            val = val.value
+        out[col.name] = val
+    return out
+
+
 @app.get("/api/admin/backup")
 def create_backup(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    """Создать бэкап базы в JSON (без кода администратора — достаточно роли СУЭ)"""
+    """Создать полный бэкап базы в JSON (format=full, version 2).
+
+    Формат идентичен рендер-версии: все таблицы через _serialize_row,
+    поэтому бэкап содержит ВСЕ поля (включая smr_method, contractor_id,
+    connection_type) и восстанавливается штатным _restore_full_backup.
+    """
     if not is_sue_admin(user):
         raise HTTPException(403, "Нет доступа: требуется роль СУЭ Администратор")
-    
+
+    # Порядок ключей = порядок восстановления (сначала справочники, потом зависимые)
+    tables_map = [
+        ("units", Unit),
+        ("roles", Role),
+        ("users", User),                # включая password_hash — нужен для входа
+        ("pu_registers", PURegister),
+        ("esk_masters", ESKMaster),
+        ("va_nominals", VA_Nominal),    # ВСЕ, не только is_active
+        ("tt_nominals", TT_Nominal),    # ВСЕ
+        ("materials", Material),        # ВСЕ
+        ("contractors", Contractor),    # Подрядчики (СМР ОКС)
+        ("pu_type_reference", PUTypeReference),
+        ("ttr_res", TTR_RES),           # ВСЕ поля, включая pu_types
+        ("ttr_esk", TTR_ESK),           # ВСЕ поля
+        ("ttr_materials", TTR_Material),
+        ("ttr_pu_types", TTR_PUType),
+        ("pu_items", PUItem),           # ВСЕ поля через _serialize_row
+        ("pu_materials", PUMaterial),
+        ("pu_movements", PUMovement),
+    ]
+
+    tables = {}
+    for name, model in tables_map:
+        tables[name] = [_serialize_row(row) for row in db.query(model).all()]
+
     backup = {
+        "format": "full",
+        "version": 2,
         "created_at": datetime.now().isoformat(),
-        "pu_items": [],
-        "users": [],
-        "units": [],
-        "ttr_res": [],
-        "ttr_esk": [],
-        "materials": [],
-        "va_nominals": [],
-        "tt_nominals": [],
+        "tables": tables,
     }
-    
-    # ПУ
-    for item in db.query(PUItem).all():
-        backup["pu_items"].append({
-            "id": item.id,
-            "serial_number": item.serial_number,
-            "pu_type": item.pu_type,
-            "status": item.status.value if item.status else None,
-            "current_unit_id": item.current_unit_id,
-            "contract_number": item.contract_number,
-            "consumer": item.consumer,
-            "address": item.address,
-            "faza": item.faza,
-            "voltage": item.voltage,
-            "power": item.power,
-            "form_factor": item.form_factor,
-            "trubostoyka": item.trubostoyka,
-            "va_type": item.va_type,
-            "has_va": item.has_va,
-            "va_nominal_id": item.va_nominal_id,
-            "has_tt": item.has_tt,
-            "tt_nominal_id": item.tt_nominal_id,
-            "approval_status": item.approval_status.value if item.approval_status else None,
-            "tz_number": item.tz_number,
-            "request_number": item.request_number,
-        })
-    
-    # Номиналы ВА
-    for item in db.query(VA_Nominal).filter(VA_Nominal.is_active == True).all():
-        backup["va_nominals"].append({"id": item.id, "name": item.name})
-    
-    # Номиналы ТТ
-    for item in db.query(TT_Nominal).filter(TT_Nominal.is_active == True).all():
-        backup["tt_nominals"].append({"id": item.id, "name": item.name})
-    
-    # Материалы
-    for item in db.query(Material).filter(Material.is_active == True).all():
-        backup["materials"].append({"id": item.id, "name": item.name, "unit": item.unit})
-    
-    # ТТР РЭС
-    for item in db.query(TTR_RES).filter(TTR_RES.is_active == True).all():
-        backup["ttr_res"].append({
-            "id": item.id, "code": item.code, "name": item.name, 
-            "ttr_type": item.ttr_type, "use_tt": item.use_tt
-        })
-    
-    # ТТР ЭСК
-    for item in db.query(TTR_ESK).filter(TTR_ESK.is_active == True).all():
-        backup["ttr_esk"].append({
-            "id": item.id, "ttr_type": item.ttr_type, "work_type_name": item.work_type_name,
-            "faza": item.faza, "form_factor": item.form_factor, "va_type": item.va_type,
-            "lsr_number": item.lsr_number, "price_no_nds": item.price_no_nds, "price_with_nds": item.price_with_nds
-        })
-    
-    # Возвращаем JSON файл
-    output = io.BytesIO()
-    output.write(json.dumps(backup, ensure_ascii=False, indent=2).encode('utf-8'))
+
+    # Возвращаем сжатый JSON файл
+    raw = json.dumps(backup, ensure_ascii=False).encode("utf-8")
+    compressed = gzip.compress(raw)
+    output = io.BytesIO(compressed)
     output.seek(0)
-    
-    filename = f"backup_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
-    
+    filename = f"backup_full_{datetime.now().strftime('%Y%m%d_%H%M')}.json.gz"
     return StreamingResponse(
         output,
-        media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        media_type="application/gzip",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 @app.get("/api/admin/health-check")
@@ -2823,6 +2889,7 @@ def _restore_full_backup(backup, db):
     units_map, roles_map, users_map, registers_map = {}, {}, {}, {}
     masters_map, va_map, tt_map, materials_map, putype_map = {}, {}, {}, {}, {}
     ttr_res_map, ttr_esk_map, pu_items_map = {}, {}, {}
+    contractors_map = {}
 
     # --- units: матч по code; parent_id проставляем во втором проходе ---
     s = st("units")
@@ -2939,6 +3006,7 @@ def _restore_full_backup(backup, db):
     restore_lookup("va_nominals", VA_Nominal, "name", va_map)
     restore_lookup("tt_nominals", TT_Nominal, "name", tt_map)
     restore_lookup("materials", Material, "name", materials_map)
+    restore_lookup("contractors", Contractor, "name", contractors_map)
     restore_lookup("pu_type_reference", PUTypeReference, "pattern", putype_map)
 
     # --- ttr_res: матч по code ---
@@ -3049,6 +3117,7 @@ def _restore_full_backup(backup, db):
         "ttr_esk_id": ttr_esk_map,
         "va_nominal_id": va_map,
         "tt_nominal_id": tt_map,
+        "contractor_id": contractors_map,
         "approved_by": users_map,
     }
     for rec in tables.get("pu_items", []):
@@ -3616,6 +3685,48 @@ def delete_material(mat_id: int, data: dict = None, db: Session = Depends(get_db
 
 # ==================== API: СПРАВОЧНИКИ ВА и ТТ ====================
 
+# ==================== API: ПОДРЯДЧИКИ (СМР ОКС) ====================
+@app.get("/api/contractors")
+def get_contractors(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    items = db.query(Contractor).filter(Contractor.is_active == True).order_by(Contractor.name).all()
+    return [{"id": c.id, "name": c.name} for c in items]
+
+
+@app.post("/api/contractors")
+def create_contractor(data: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if not is_sue_admin(user):
+        raise HTTPException(403, "Нет доступа")
+    c = Contractor(name=data["name"])
+    db.add(c)
+    db.commit()
+    return {"id": c.id}
+
+
+@app.put("/api/contractors/{item_id}")
+def update_contractor(item_id: int, data: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if not is_sue_admin(user):
+        raise HTTPException(403, "Нет доступа")
+    c = db.query(Contractor).filter(Contractor.id == item_id).first()
+    if not c:
+        raise HTTPException(404, "Не найден")
+    for k, val in data.items():
+        if hasattr(c, k):
+            setattr(c, k, val)
+    db.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/contractors/{item_id}")
+def delete_contractor(item_id: int, data: dict = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if not is_sue_admin(user):
+        raise HTTPException(403, "Нет доступа")
+    if not data or data.get("admin_code") != ADMIN_CODE:
+        raise HTTPException(403, "Неверный код администратора")
+    db.query(Contractor).filter(Contractor.id == item_id).update({"is_active": False})
+    db.commit()
+    return {"ok": True}
+
+
 @app.get("/api/va-nominals")
 def get_va_nominals(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     items = db.query(VA_Nominal).filter(VA_Nominal.is_active == True).all()
@@ -4095,7 +4206,7 @@ def save_materials_bulk(data: dict, db: Session = Depends(get_db), user: User = 
 @app.get("/api/pu-types")
 def get_pu_types(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     items = db.query(PUTypeReference).filter(PUTypeReference.is_active == True).all()
-    return [{"id": p.id, "pattern": p.pattern, "faza": p.faza, "voltage": p.voltage, "form_factor": p.form_factor} for p in items]
+    return [{"id": p.id, "pattern": p.pattern, "faza": p.faza, "voltage": p.voltage, "form_factor": p.form_factor, "connection_type": p.connection_type} for p in items]
 
 @app.post("/api/pu-types")
 def create_pu_type(data: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
@@ -4105,7 +4216,8 @@ def create_pu_type(data: dict, db: Session = Depends(get_db), user: User = Depen
         pattern=data["pattern"], 
         faza=data.get("faza"), 
         voltage=data.get("voltage"),
-        form_factor=data.get("form_factor")
+        form_factor=data.get("form_factor"),
+        connection_type=data.get("connection_type")
     )
     db.add(p)
     db.commit()
