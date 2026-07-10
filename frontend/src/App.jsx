@@ -307,7 +307,7 @@ function Sidebar({ page, setPage }) {
     { id: 'tz', icon: 'clipboard', label: 'Техн. задания', show: isSueAdmin || isOksAdmin },
     { id: 'requests', icon: 'fileEdit', label: 'Заявки ЭСК', show: isSueAdmin || isEskAdmin || isEskUser || isOksAdmin },
     { id: 'memo', icon: 'fileText', label: 'Служебки', show: isSueAdmin },
-    { id: 'settings', icon: 'settings', label: 'Настройки', show: canManageUsers || isEskAdmin || isResUser || isEskUser },
+    { id: 'settings', icon: 'settings', label: 'Настройки', show: canManageUsers || isEskAdmin || isResUser || isEskUser || isOksAdmin },
     ].filter(i => i.show)
 
   return (
@@ -437,7 +437,7 @@ function HomePage({ setPage, onOpenPU }) {
     { id: 'approval', icon: 'checkCircle', label: 'Согласование', desc: 'СМР от ЭСК и ОКС', show: canApprove },
     { id: 'tz', icon: 'clipboard', label: 'Тех. задания', desc: 'Формирование ТЗ', show: isSueAdmin || isOksAdmin },
     { id: 'requests', icon: 'fileEdit', label: 'Заявки ЭСК', desc: 'Реестр заявок', show: isSueAdmin || isOksAdmin },
-    { id: 'settings', icon: 'settings', label: 'Настройки', desc: 'Справочники и доступ', show: canManageUsers || isEskAdmin },
+    { id: 'settings', icon: 'settings', label: 'Настройки', desc: 'Справочники и доступ', show: canManageUsers || isEskAdmin || isOksAdmin },
   ].filter(s => s.show)
 
   return (
@@ -996,6 +996,7 @@ function PUCardModal({ itemId, onClose }) {
   const [loadingMaterials, setLoadingMaterials] = useState(false)
   const [vaNominals, setVaNominals] = useState([])
   const [ttNominals, setTtNominals] = useState([])
+  const [contractors, setContractors] = useState([])
 
 useEffect(() => {
   const loadItem = async () => {
@@ -1070,6 +1071,7 @@ useEffect(() => {
   api.get('/masters').then(r => setMasters(r.data))
   api.get('/va-nominals').then(r => setVaNominals(r.data))
   api.get('/tt-nominals').then(r => setTtNominals(r.data))
+  api.get('/contractors').then(r => setContractors(r.data))
 }, [itemId])
 
 // Для ОКС исполнитель СМР всегда "ОКС" (без выбора РСК/ЭСК)
@@ -1752,6 +1754,42 @@ const updateMaterialQty = (materialId, qty) => {
                   <input type="date" value={item.smr_date || ''} onChange={e => update('smr_date', e.target.value)} disabled={!canEdit} className="w-full px-3 py-2 border rounded-lg" />
                 </div>
               </div>
+              {/* Способ СМР и подрядчик — только для ОКС */}
+              {isOks && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Способ СМР</label>
+                    <select
+                      value={item.smr_method || ''}
+                      onChange={e => {
+                        const v = e.target.value || null
+                        // При выборе "Хоз способ" (или сбросе) подрядчик очищается
+                        setItem(prev => ({ ...prev, smr_method: v, contractor_id: v === 'Подрядчик' ? prev.contractor_id : null }))
+                      }}
+                      disabled={!canEdit}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="">—</option>
+                      <option value="Хоз способ">Хоз способ</option>
+                      <option value="Подрядчик">Подрядчик</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Подрядчик</label>
+                    <select
+                      value={item.contractor_id || ''}
+                      onChange={e => setItem(prev => ({ ...prev, contractor_id: e.target.value ? Number(e.target.value) : null }))}
+                      disabled={!canEdit || item.smr_method !== 'Подрядчик'}
+                      className={`w-full px-3 py-2 border rounded-lg ${item.smr_method !== 'Подрядчик' ? 'bg-gray-50 text-gray-400' : ''}`}
+                    >
+                      <option value="">—</option>
+                      {contractors.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -2260,6 +2298,8 @@ function ReviewDetail({ detail, source, loading }) {
         <ReviewField label="Адрес" value={detail.address} />
         <ReviewField label="Дата СМР" value={detail.smr_date} />
         <ReviewField label="СМР выполнил" value={detail.smr_executor} />
+        {detail.smr_method && <ReviewField label="Способ СМР" value={detail.smr_method} />}
+        {detail.smr_method === 'Подрядчик' && <ReviewField label="Подрядчик" value={detail.contractor} />}
         {detail.smr_master && <ReviewField label="Мастер" value={detail.smr_master} />}
       </div>
 
@@ -4319,20 +4359,21 @@ function MemoPage() {
 
 // ==================== НАСТРОЙКИ ====================
 function SettingsPage() {
-  const { canManageUsers, isSueAdmin, isEskAdmin, isResUser, isEskUser } = useAuth()
-  const [tab, setTab] = useState(isSueAdmin ? 'users' : 'masters')
+  const { canManageUsers, isSueAdmin, isEskAdmin, isResUser, isEskUser, isOksAdmin, isOksUser } = useAuth()
+  const [tab, setTab] = useState(isSueAdmin ? 'users' : isOksAdmin ? 'ttr-res' : 'masters')
 
-  if (!canManageUsers && !isEskAdmin) return <div className="text-center py-12 text-gray-500">Нет доступа</div>
+  if (!canManageUsers && !isEskAdmin && !isOksAdmin) return <div className="text-center py-12 text-gray-500">Нет доступа</div>
 
   const tabs = [
     { id: 'users', icon: 'users', label: 'Пользователи', show: isSueAdmin },
     { id: 'masters', icon: 'hardhat', label: 'Мастера ЭСК', show: isEskAdmin || isSueAdmin },
-    { id: 'ttr-res', icon: 'ruler', label: 'ТТР (РЭС)', show: isSueAdmin || isResUser },
+    { id: 'ttr-res', icon: 'ruler', label: 'ТТР (РЭС)', show: isSueAdmin || isResUser || isOksAdmin },
     { id: 'ttr-esk', icon: 'ruler', label: 'ТТР (ЭСК)', show: isSueAdmin || isEskAdmin || isEskUser },
-    { id: 'materials', icon: 'wrench', label: 'Материалы', show: isSueAdmin || isResUser },
-    { id: 'va-nominals', icon: 'zap', label: 'Номиналы ВА', show: isSueAdmin || isResUser },
-    { id: 'tt-nominals', icon: 'plug', label: 'Номиналы ТТ', show: isSueAdmin || isResUser },
-    { id: 'pu-types', icon: 'package', label: 'Типы ПУ', show: isSueAdmin || isResUser || isEskUser },
+    { id: 'materials', icon: 'wrench', label: 'Материалы', show: isSueAdmin || isResUser || isOksAdmin },
+    { id: 'va-nominals', icon: 'zap', label: 'Номиналы ВА', show: isSueAdmin || isResUser || isOksAdmin },
+    { id: 'tt-nominals', icon: 'plug', label: 'Номиналы ТТ', show: isSueAdmin || isResUser || isOksAdmin },
+    { id: 'pu-types', icon: 'package', label: 'Типы ПУ', show: isSueAdmin || isResUser || isEskUser || isOksAdmin },
+    { id: 'contractors', icon: 'hardhat', label: 'Подрядчики (ОКС)', show: isSueAdmin || isOksAdmin || isOksUser },
     { id: 'bulk-update', icon: 'fileEdit', label: 'Корректировка', show: isSueAdmin },
     { id: 'system', icon: 'settings', label: 'Система', show: isSueAdmin },
   ].filter(t => t.show)
@@ -4355,6 +4396,7 @@ function SettingsPage() {
       {tab === 'ttr-esk' && <TTREskTab />}
       {tab === 'materials' && <MaterialsTab />}
       {tab === 'pu-types' && <PUTypesTab />}
+      {tab === 'contractors' && <ContractorsTab />}
       {tab === 'va-nominals' && <VANominalsTab />}
       {tab === 'tt-nominals' && <TTNominalsTab />}
       {tab === 'bulk-update' && <BulkUpdateTab />}
@@ -5118,6 +5160,88 @@ function MaterialForm({ item, onSave, onClose }) {
   )
 }
 
+// --- Подрядчики (СМР ОКС) ---
+function ContractorsTab() {
+  const { isSueAdmin } = useAuth()
+  const [items, setItems] = useState([])
+  const [modal, setModal] = useState(null)
+  const [deleteModal, setDeleteModal] = useState(null)
+
+  useEffect(() => { api.get('/contractors').then(r => setItems(r.data)) }, [])
+
+  const handleSave = async (data) => {
+    if (modal.item) {
+      await api.put(`/contractors/${modal.item.id}`, data)
+    } else {
+      await api.post('/contractors', data)
+    }
+    api.get('/contractors').then(r => setItems(r.data))
+    setModal(null)
+  }
+
+  return (
+    <>
+      {isSueAdmin && (
+        <div className="flex justify-end">
+          <button onClick={() => setModal({ item: null })} className="px-4 py-2 bg-blue-600 text-white rounded-lg"><Icon name="plus" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Добавить</button>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left">Наименование подрядчика</th>
+              {isSueAdmin && <th className="px-4 py-3 text-right w-24">Действия</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map(i => (
+              <tr key={i.id} className="border-t">
+                <td className="px-4 py-3 font-medium">{i.name}</td>
+                {isSueAdmin && (
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => setModal({ item: i })} className="px-1"><Icon name="edit" className="w-[1.1em] h-[1.1em] inline-block align-[-0.15em]" /></button>
+                    <button onClick={() => setDeleteModal(i)} className="px-1 text-red-500"><Icon name="trash" className="w-[1.1em] h-[1.1em] inline-block align-[-0.15em]" /></button>
+                  </td>
+                )}
+              </tr>
+            ))}
+            {items.length === 0 && (
+              <tr><td className="px-4 py-6 text-center text-gray-400" colSpan={isSueAdmin ? 2 : 1}>Подрядчики не добавлены</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {modal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый подрядчик'}</h2>
+            <NominalForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} placeholder="Наименование подрядчика" />
+          </div>
+        </div>
+      )}
+
+      {deleteModal && (
+        <DeleteWithCodeModal
+          title={`Удалить подрядчика "${deleteModal.name}"?`}
+          onClose={() => setDeleteModal(null)}
+          onDelete={async (code) => {
+            try {
+              await api.delete(`/contractors/${deleteModal.id}`, { data: { admin_code: code } })
+              api.get('/contractors').then(r => setItems(r.data))
+              setDeleteModal(null)
+            } catch (err) {
+              alert(err.response?.data?.detail || 'Ошибка удаления')
+            }
+          }}
+        />
+      )}
+    </>
+  )
+}
+
 // --- Типы ПУ ---
 function PUTypesTab() {
   const { isSueAdmin } = useAuth()
@@ -5153,6 +5277,7 @@ function PUTypesTab() {
               <th className="px-4 py-3 text-left">Фазность</th>
               <th className="px-4 py-3 text-left">Напряжение</th>
               <th className="px-4 py-3 text-left">Форм-фактор</th>
+              <th className="px-4 py-3 text-left">Включение</th>
               {isSueAdmin && <th className="w-24"></th>}
             </tr>
           </thead>
@@ -5163,6 +5288,7 @@ function PUTypesTab() {
                 <td className="px-4 py-3">{i.faza || '—'}</td>
                 <td className="px-4 py-3">{i.voltage || '—'}</td>
                 <td className="px-4 py-3">{i.form_factor === 'split' ? 'Сплит' : i.form_factor === 'classic' ? 'Классика' : '—'}</td>
+                <td className="px-4 py-3">{i.connection_type === 'direct' ? 'Прямое' : i.connection_type === 'transformer' ? 'ТТ' : '—'}</td>
                 {isSueAdmin && (
                   <td className="px-4 py-3">
                     <button onClick={() => setModal({ item: i })} className="mr-2"><Icon name="edit" className="w-[1.1em] h-[1.1em] inline-block align-[-0.15em]" /></button>
@@ -5388,7 +5514,8 @@ function PUTypeForm({ item, onSave, onClose }) {
     pattern: item?.pattern || '', 
     faza: item?.faza || '', 
     voltage: item?.voltage || '',
-    form_factor: item?.form_factor || ''
+    form_factor: item?.form_factor || '',
+    connection_type: item?.connection_type || ''
   })
   return (
     <div className="space-y-3">
@@ -5409,6 +5536,11 @@ function PUTypeForm({ item, onSave, onClose }) {
         <option value="">Форм-фактор...</option>
         <option value="split">Сплит</option>
         <option value="classic">Классика</option>
+      </select>
+      <select value={form.connection_type} onChange={e => setForm({ ...form, connection_type: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
+        <option value="">Тип включения...</option>
+        <option value="direct">Прямое включение</option>
+        <option value="transformer">ТТ включение (трансформаторное)</option>
       </select>
       <div className="flex justify-end gap-2">
         <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg">Отмена</button>
@@ -5466,7 +5598,7 @@ function SystemTab() {
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', `backup_${new Date().toISOString().slice(0,10)}.json`)
+      link.setAttribute('download', `backup_full_${new Date().toISOString().slice(0,10)}.json.gz`)
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -5604,7 +5736,7 @@ function BulkUpdateTab() {
   const [mode, setMode] = useState('types') // types или move
 
  const handleUpload = async () => {
-    if (mode !== 'autofaza' && mode !== 'formfactor' && !file) {
+    if (mode !== 'autofaza' && mode !== 'formfactor' && mode !== 'connection' && !file) {
       alert('Выберите файл')
       return
     }
@@ -5623,6 +5755,7 @@ function BulkUpdateTab() {
         : mode === 'naznachenie' ? '/pu/import-naznachenie' 
         : mode === 'autofaza' ? '/pu/auto-fill-faza' 
         : mode === 'formfactor' ? '/pu/auto-fill-formfactor'
+        : mode === 'connection' ? '/pu/auto-fill-connection'
         : '/pu/move-bulk'
       const r = await api.post(endpoint, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -5674,6 +5807,12 @@ function BulkUpdateTab() {
         >
           <Icon name="ruler" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Автозаполнение форм-фактора
         </button>
+        <button 
+          onClick={() => { setMode('connection'); resetForm() }} 
+          className={`px-4 py-2 rounded-lg ${mode === 'connection' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+        >
+          <Icon name="plug" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Автозаполнение типа включения
+        </button>
       </div>
 
       {/* Инструкция */}
@@ -5700,6 +5839,13 @@ function BulkUpdateTab() {
             <li>• Файл <b>не требуется</b></li>
             <li>• Автоматически заполнит форм-фактор по справочнику типов ПУ</li>
             <li>• Только для ПУ где форм-фактор ещё не указан</li>
+          </ul>
+        ) : mode === 'connection' ? (
+          <ul className="text-blue-700 text-sm space-y-1">
+            <li>• Файл <b>не требуется</b></li>
+            <li>• Автоматически заполнит тип включения (прямое / ТТ) по справочнику типов ПУ</li>
+            <li>• Только для ПУ где тип включения ещё не указан</li>
+            <li>• Сначала проставьте признак «Включение» в настройках → Типы ПУ</li>
           </ul>
          ) : (
           <ul className="text-blue-700 text-sm space-y-1">
