@@ -1128,8 +1128,10 @@ useEffect(() => {
       if ((item.status === 'ZAMENA' || item.status === 'IZHC') && !item.ls_number) {
         errs.ls_number = 'Обязательно'
       }
-      // Если ВА установлен — ТТР распред. щита обязателен
-      if (item.has_va && !item.ttr_or_id) {
+      // Если ВА установлен — ТТР распред. щита обязателен.
+      // Исключение: ОКС с подрядным способом СМР — там ТТР не назначаются.
+      const _isOksContractor = (item?.current_unit_type === 'OKS_UNIT' || item?.current_unit_type === 'OKS') && item.smr_method === 'Подрядчик'
+      if (item.has_va && !item.ttr_or_id && !_isOksContractor) {
         errs.ttr_or_id = 'Обязательно при ВА'
       }
     }
@@ -1219,6 +1221,8 @@ const handleSendApproval = async () => {
     if (!item.consumer) requiredFields.push('Потребитель')
     if (!item.address) requiredFields.push('Адрес')
     if (!item.smr_date) requiredFields.push('Дата СМР')
+    // Подрядный способ СМР — обязателен выбор подрядчика (ТТР при этом не нужны)
+    if (item.smr_method === 'Подрядчик' && !item.contractor_id) requiredFields.push('Подрядчик')
   } else {
     if (!item.faza) requiredFields.push('Фазность')
     if (!item.form_factor) requiredFields.push('Форм-фактор')
@@ -1241,6 +1245,7 @@ const handleSendApproval = async () => {
       if (!item.consumer) newErrors.consumer = 'Обязательно'
       if (!item.address) newErrors.address = 'Обязательно'
       if (!item.smr_date) newErrors.smr_date = 'Обязательно'
+      if (item.smr_method === 'Подрядчик' && !item.contractor_id) newErrors.contractor_id = 'Обязательно'
     } else {
       if (!item.faza) newErrors.faza = 'Обязательно'
       if (!item.form_factor) newErrors.form_factor = 'Обязательно'
@@ -1517,6 +1522,9 @@ const updateMaterialQty = (materialId, qty) => {
     // ОКС по содержанию карточки идентичен РЭС (ТТР РЭС, материалы, ВА/ТТ),
     // но отправляет на согласование как ЭСК. isResLike — для контентных секций.
     const isResLike = isRes || isOks
+    // ОКС с подрядным способом СМР работает БЕЗ ТТР и материалов (их назначают
+    // только при хоз способе) — блоки ТТР и материалов для него скрыты.
+    const isOksContractor = isOks && item?.smr_method === 'Подрядчик'
 // СУЭ может редактировать карточки РЭС, РЭС редактирует свои, ЭСК/ОКС редактируют свои
     
     const isApproved = item?.approval_status === 'APPROVED'
@@ -1683,8 +1691,8 @@ const updateMaterialQty = (materialId, qty) => {
             </>
           )}
 
-          {/* ТТР для РЭС / ОКС */}
-          {isResLike && item.status !== 'SKLAD' && (
+          {/* ТТР для РЭС / ОКС (для ОКС с подрядчиком — скрыто) */}
+          {isResLike && item.status !== 'SKLAD' && !isOksContractor && (
             <>
               <hr />
               <h3 className="font-medium">ТТР (для РЭС)</h3>
@@ -1763,8 +1771,16 @@ const updateMaterialQty = (materialId, qty) => {
                       value={item.smr_method || ''}
                       onChange={e => {
                         const v = e.target.value || null
-                        // При выборе "Хоз способ" (или сбросе) подрядчик очищается
-                        setItem(prev => ({ ...prev, smr_method: v, contractor_id: v === 'Подрядчик' ? prev.contractor_id : null }))
+                        // При выборе "Хоз способ" (или сбросе) подрядчик очищается.
+                        // При "Подрядчик" ТТР не нужны — сбрасываем ttr_*_id и материалы
+                        // (бэкенд по сброшенным ТТР удалит привязанные PUMaterial).
+                        setItem(prev => ({
+                          ...prev,
+                          smr_method: v,
+                          contractor_id: v === 'Подрядчик' ? prev.contractor_id : null,
+                          ...(v === 'Подрядчик' ? { ttr_ou_id: null, ttr_ol_id: null, ttr_or_id: null, ttr_tt_id: null } : {})
+                        }))
+                        if (v === 'Подрядчик') setMaterials([])
                       }}
                       disabled={!canEdit}
                       className="w-full px-3 py-2 border rounded-lg"
@@ -2005,8 +2021,8 @@ const updateMaterialQty = (materialId, qty) => {
   </div>
 )}
           
-          {/* Материалы для РЭС / ОКС */}
-{isResLike && item.status !== 'SKLAD' && materials.length > 0 && (
+          {/* Материалы для РЭС / ОКС (для ОКС с подрядчиком — скрыто) */}
+{isResLike && item.status !== 'SKLAD' && materials.length > 0 && !isOksContractor && (
   <>
     <hr />
     <h3 className="font-medium"><Icon name="package" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Материалы</h3>
