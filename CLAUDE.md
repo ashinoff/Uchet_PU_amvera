@@ -145,6 +145,10 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-07-11** — В iframe платформы при неуспешном SSO-входе (нет учётки/
+  доступа) показывается экран «Нет доступа. Обратитесь к администратору»
+  (компонент `AccessDenied`), а НЕ своя форма логина (`if (!user) return
+  EMBEDDED ? <AccessDenied/> : <LoginPage/>`). Вне iframe — как прежде.
 - **2026-07-10** — Карточка ПУ, ОКС + способ СМР «Подрядчик»: ТТР и материалы
   назначаются ТОЛЬКО при хоз способе. Флаг `isOksContractor` (`isOks &&
   smr_method === 'Подрядчик'`) скрывает блоки ТТР (`ttr_ou/ol/or_id` + авто
