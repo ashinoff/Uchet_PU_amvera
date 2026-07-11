@@ -2870,7 +2870,7 @@ def _restore_full_backup(backup, db):
 
     def st(name):
         if name not in stats:
-            stats[name] = {"created": 0, "matched": 0, "skipped": 0}
+            stats[name] = {"created": 0, "matched": 0, "skipped": 0, "updated": 0}
         return stats[name]
 
     def err(table, rec, exc):
@@ -2942,6 +2942,10 @@ def _restore_full_backup(backup, db):
             if existing:
                 users_map[rec.get("id")] = existing.id
                 s["matched"] += 1
+                # Дозаполняем пустой email (пароль/остальное не трогаем)
+                if not existing.email and rec.get("email"):
+                    existing.email = rec.get("email")
+                    s["updated"] += 1
             else:
                 kwargs = _restore_model_kwargs(User, rec, fk, skip=("id",))
                 users_map[rec.get("id")] = add_record(User, kwargs)
@@ -2984,7 +2988,7 @@ def _restore_full_backup(backup, db):
     db.commit()
 
     # --- справочники с матчем по одному полю (name/pattern) ---
-    def restore_lookup(name, model, match_col, target_map):
+    def restore_lookup(name, model, match_col, target_map, fill=None):
         s = st(name)
         for rec in tables.get(name, []):
             try:
@@ -2994,6 +2998,8 @@ def _restore_full_backup(backup, db):
                 if existing:
                     target_map[rec.get("id")] = existing.id
                     s["matched"] += 1
+                    if fill:
+                        fill(existing, rec, s)
                 else:
                     kwargs = _restore_model_kwargs(model, rec, {}, skip=("id",))
                     target_map[rec.get("id")] = add_record(model, kwargs)
@@ -3003,11 +3009,17 @@ def _restore_full_backup(backup, db):
                 s["skipped"] += 1
         db.commit()
 
+    def _fill_putype(existing, rec, s):
+        # Дозаполняем пустой connection_type у существующего типа ПУ
+        if not existing.connection_type and rec.get("connection_type"):
+            existing.connection_type = rec.get("connection_type")
+            s["updated"] += 1
+
     restore_lookup("va_nominals", VA_Nominal, "name", va_map)
     restore_lookup("tt_nominals", TT_Nominal, "name", tt_map)
     restore_lookup("materials", Material, "name", materials_map)
     restore_lookup("contractors", Contractor, "name", contractors_map)
-    restore_lookup("pu_type_reference", PUTypeReference, "pattern", putype_map)
+    restore_lookup("pu_type_reference", PUTypeReference, "pattern", putype_map, fill=_fill_putype)
 
     # --- ttr_res: матч по code ---
     s = st("ttr_res")
@@ -3130,6 +3142,7 @@ def _restore_full_backup(backup, db):
                 s["created"] += 1
             else:
                 # Обновляем только пустые поля (NULL / False-дефолт), не перетирая ручное
+                changed = False
                 for col in PUItem.__table__.columns:
                     name = col.name
                     if name in ("id", "serial_number"):
@@ -3146,8 +3159,11 @@ def _restore_full_backup(backup, db):
                         newval = None
                     if newval is not None:
                         setattr(existing, name, newval)
+                        changed = True
                 pu_items_map[rec.get("id")] = existing.id
                 s["matched"] += 1
+                if changed:
+                    s["updated"] += 1
         except Exception as e:
             err("pu_items", rec, e)
             s["skipped"] += 1
@@ -3210,9 +3226,10 @@ def _restore_full_backup(backup, db):
             s["skipped"] += 1
     db.commit()
 
-    # Сводка для существующего фронтового alert (restored.*)
-    def created(name):
-        return stats.get(name, {}).get("created", 0)
+    # Сводка для фронтового alert: created + updated по сущностям
+    def cu(name):
+        st_ = stats.get(name, {})
+        return {"created": st_.get("created", 0), "updated": st_.get("updated", 0)}
 
     return {
         "status": "OK",
@@ -3221,13 +3238,14 @@ def _restore_full_backup(backup, db):
         "tables": stats,
         "errors": errors[:20],
         "restored": {
-            "pu_items": created("pu_items"),
-            "ttr_res": created("ttr_res"),
-            "ttr_esk": created("ttr_esk"),
-            "materials": created("materials"),
-            "va_nominals": created("va_nominals"),
-            "tt_nominals": created("tt_nominals"),
-            "users": created("users"),
+            "pu_items": cu("pu_items"),
+            "users": cu("users"),
+            "pu_type_reference": cu("pu_type_reference"),
+            "ttr_res": cu("ttr_res"),
+            "ttr_esk": cu("ttr_esk"),
+            "materials": cu("materials"),
+            "va_nominals": cu("va_nominals"),
+            "tt_nominals": cu("tt_nominals"),
         },
     }
 

@@ -5655,7 +5655,9 @@ function SystemTab() {
     const r = await api.post('/admin/restore', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
-    alert(`Восстановлено:\n• ПУ: ${r.data.restored.pu_items}\n• ТТР РЭС: ${r.data.restored.ttr_res}\n• ТТР ЭСК: ${r.data.restored.ttr_esk}\n• Материалы: ${r.data.restored.materials}\n• Номиналы ВА: ${r.data.restored.va_nominals}\n• Номиналы ТТ: ${r.data.restored.tt_nominals}\n• Пользователи: ${r.data.restored.users}`)
+    const R = r.data.restored
+    const cu = (v) => (v && typeof v === 'object') ? v : { created: v || 0, updated: 0 }
+    alert(`Восстановление завершено:\n• ПУ: создано ${cu(R.pu_items).created}, обновлено ${cu(R.pu_items).updated}\n• Пользователи: создано ${cu(R.users).created}, обновлено ${cu(R.users).updated}\n• Типы ПУ: создано ${cu(R.pu_type_reference).created}, обновлено ${cu(R.pu_type_reference).updated}\n• ТТР РЭС: создано ${cu(R.ttr_res).created}\n• ТТР ЭСК: создано ${cu(R.ttr_esk).created}\n• Материалы: создано ${cu(R.materials).created}\n• Номиналы ВА: создано ${cu(R.va_nominals).created}\n• Номиналы ТТ: создано ${cu(R.tt_nominals).created}`)
     runHealthCheck()
   } catch (err) {
     alert('Ошибка восстановления: ' + (err.response?.data?.detail || err.message))
