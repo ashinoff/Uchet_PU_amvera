@@ -4466,13 +4466,17 @@ function UsersTab() {
   }
 
   const handleSave = async (data) => {
-    if (modal.user) {
-      await api.put(`/users/${modal.user.id}`, data)
-    } else {
-      await api.post('/users', data)
+    try {
+      if (modal.user) {
+        await api.put(`/users/${modal.user.id}`, data)
+      } else {
+        await api.post('/users', data)
+      }
+      api.get('/users').then(r => setUsers(r.data))
+      setModal(null)
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Не удалось сохранить пользователя')
     }
-    api.get('/users').then(r => setUsers(r.data))
-    setModal(null)
   }
 
   return (
@@ -4518,7 +4522,7 @@ function UserModal({ user, roles, units, onClose, onSave }) {
       <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-semibold mb-4">{user ? 'Редактировать' : 'Новый пользователь'}</h2>
         <div className="space-y-3">
-          <input type="text" placeholder="Логин" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} disabled={!!user} className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100" />
+          <input type="text" placeholder="Логин" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100" />
           {!user && <input type="password" placeholder="Пароль" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />}
           <input type="text" placeholder="ФИО" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />
           <input type="email" placeholder="Email (для единого входа через платформу)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />

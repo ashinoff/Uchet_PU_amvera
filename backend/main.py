@@ -950,6 +950,11 @@ def update_user(user_id: int, data: dict, db: Session = Depends(get_db), user: U
     u = db.query(User).filter(User.id == user_id).first()
     if not u:
         raise HTTPException(404, "Не найден")
+    # Логин можно менять, но он уникален — проверяем занятость другим пользователем.
+    new_username = data.get("username")
+    if new_username and new_username != u.username:
+        if db.query(User).filter(User.username == new_username, User.id != user_id).first():
+            raise HTTPException(400, "Логин уже занят")
     for k, v in data.items():
         if k != "password" and hasattr(u, k):
             setattr(u, k, v)
