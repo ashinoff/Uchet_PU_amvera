@@ -5655,7 +5655,7 @@ function SystemTab() {
     const r = await api.post('/admin/restore', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
-    alert(`Восстановлено:\n• ПУ: ${r.data.restored.pu_items}\n• ТТР РЭС: ${r.data.restored.ttr_res}\n• ТТР ЭСК: ${r.data.restored.ttr_esk}\n• Материалы: ${r.data.restored.materials}\n• Номиналы ВА: ${r.data.restored.va_nominals}\n• Номиналы ТТ: ${r.data.restored.tt_nominals}`)
+    alert(`Восстановлено:\n• ПУ: ${r.data.restored.pu_items}\n• ТТР РЭС: ${r.data.restored.ttr_res}\n• ТТР ЭСК: ${r.data.restored.ttr_esk}\n• Материалы: ${r.data.restored.materials}\n• Номиналы ВА: ${r.data.restored.va_nominals}\n• Номиналы ТТ: ${r.data.restored.tt_nominals}\n• Пользователи: ${r.data.restored.users}`)
     runHealthCheck()
   } catch (err) {
     alert('Ошибка восстановления: ' + (err.response?.data?.detail || err.message))
