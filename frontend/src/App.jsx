@@ -5597,6 +5597,7 @@ function PUTypeForm({ item, onSave, onClose }) {
 
 // --- Система ---
 function SystemTab() {
+  const { user: currentUser } = useAuth()
   const [clearModal, setClearModal] = useState(false)
   const [healthCheck, setHealthCheck] = useState(null)
   const [loadingHealth, setLoadingHealth] = useState(false)
@@ -5744,7 +5745,8 @@ function SystemTab() {
         )}
       </div>
 
-      {/* Опасная зона */}
+      {/* Опасная зона — только для учётки admin */}
+      {currentUser?.username === 'admin' && (
       <div className="bg-white rounded-xl border p-6 space-y-4">
         <h2 className="font-semibold text-red-600"><Icon name="alert" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Опасная зона</h2>
         <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg">
@@ -5755,6 +5757,7 @@ function SystemTab() {
           <button onClick={() => setClearModal(true)} className="px-4 py-2 bg-red-600 text-white rounded-lg">Очистить</button>
         </div>
       </div>
+      )}
 
       {clearModal && (
         <DeleteWithCodeModal
