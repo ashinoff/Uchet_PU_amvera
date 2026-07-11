@@ -257,7 +257,8 @@ function Main() {
   const openPU = (preset) => { setPuPreset(preset); setPage('pu') }
 
   if (loading || ssoPending) return <div className="min-h-screen flex items-center justify-center"><RossetiLoader /></div>
-  if (!user) return <LoginPage />
+  // В iframe платформы не показываем свою форму логина: нет доступа → сообщение.
+  if (!user) return EMBEDDED ? <AccessDenied /> : <LoginPage />
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
@@ -360,6 +361,20 @@ function Header() {
 }
 
 // ==================== СТРАНИЦА ЛОГИНА ====================
+function AccessDenied() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="bg-white rounded-xl shadow p-8 text-center max-w-sm">
+        <h2 className="text-lg font-semibold text-gray-800">Нет доступа</h2>
+        <p className="mt-2 text-sm text-gray-500">
+          У вашей учётной записи нет доступа к этому приложению.<br />
+          Обратитесь к администратору.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
