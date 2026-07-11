@@ -724,11 +724,13 @@ def platform_login(request: Request, db: Session = Depends(get_db)):
     return {"access_token": create_token(user.id)}
 
 def _platform_badge_count(user: User, db: Session) -> int:
-    """Сколько элементов требует действия от пользователя — по его роли.
+    """Сколько элементов требует действия от пользователя.
 
-    Считаем ровно то, что приложение показывает как «требует внимания»:
-    согласование (РЭС/СУЭ), техзадания (СУЭ/ОКС), заявки ЭСК (ЭСК).
-    Только count-запросы — без выгрузки списков.
+    Считаем ровно то, что приложение подсвечивает бейджем в меню —
+    счётчик пункта «Согласование» (виден только РЭС и СУЭ-админу).
+    Больше приложение ничего бейджем не показывает, поэтому остальные
+    роли получают 0, чтобы бейдж на платформе совпадал с бейджем в
+    приложении. Только count-запрос — без выгрузки списков.
     """
     total = 0
 
@@ -748,32 +750,6 @@ def _platform_badge_count(user: User, db: Session) -> int:
         total += db.query(PUItem).filter(
             PUItem.approval_status == ApprovalStatus.PENDING,
         ).count()
-
-    # Техзадания: СУЭ-админ (ПУ РЭС) и ОКС-админ (ПУ ОКС) — ПУ без ТЗ
-    # в статусах TECHPRIS/ZAMENA/IZHC.
-    if is_sue_admin(user) or is_oks_admin(user):
-        if is_oks_admin(user):
-            scope_units = db.query(Unit.id).filter(
-                Unit.unit_type.in_([UnitType.OKS, UnitType.OKS_UNIT])
-            )
-        else:
-            scope_units = db.query(Unit.id).filter(Unit.unit_type == UnitType.RES)
-        total += db.query(PUItem).filter(
-            PUItem.status.in_([PUStatus.TECHPRIS, PUStatus.ZAMENA, PUStatus.IZHC]),
-            (PUItem.tz_number == None) | (PUItem.tz_number == ""),
-            PUItem.current_unit_id.in_(scope_units),
-        ).count()
-
-    # Заявки ЭСК: ЭСК-админ/пользователь — согласованные ПУ (APPROVED) без
-    # заявки в пределах видимых подразделений.
-    if is_esk_admin(user) or is_esk_user(user):
-        visible = get_visible_units(user, db)
-        if visible:
-            total += db.query(PUItem).filter(
-                PUItem.approval_status == ApprovalStatus.APPROVED,
-                (PUItem.request_number == None) | (PUItem.request_number == ""),
-                PUItem.current_unit_id.in_(visible),
-            ).count()
 
     return total
 
