@@ -4438,6 +4438,7 @@ function SettingsPage() {
 
 // --- Пользователи ---
 function UsersTab() {
+  const { user: currentUser } = useAuth()
   const [users, setUsers] = useState([])
   const [roles, setRoles] = useState([])
   const [units, setUnits] = useState([])
@@ -4452,6 +4453,16 @@ function UsersTab() {
   const toggleActive = async (u) => {
     await api.put(`/users/${u.id}`, { is_active: !u.is_active })
     api.get('/users').then(r => setUsers(r.data))
+  }
+
+  const handleDelete = async (u) => {
+    if (!window.confirm(`Удалить пользователя «${u.username}»? Действие необратимо.`)) return
+    try {
+      await api.delete(`/users/${u.id}`)
+      api.get('/users').then(r => setUsers(r.data))
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Не удалось удалить пользователя')
+    }
   }
 
   const handleSave = async (data) => {
@@ -4485,6 +4496,9 @@ function UsersTab() {
                 <td className="px-4 py-3">
                   <button onClick={() => setModal({ user: u })} className="mr-2"><Icon name="edit" className="w-[1.1em] h-[1.1em] inline-block align-[-0.15em]" /></button>
                   <button onClick={() => toggleActive(u)}>{u.is_active ? '' : ''}</button>
+                  {u.id !== currentUser?.id && (
+                    <button onClick={() => handleDelete(u)} className="ml-2 text-red-500 hover:text-red-700" title="Удалить пользователя"><Icon name="trash" className="w-[1.1em] h-[1.1em] inline-block align-[-0.15em]" /></button>
+                  )}
                 </td>
               </tr>
             ))}

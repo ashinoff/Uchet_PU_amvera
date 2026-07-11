@@ -956,6 +956,27 @@ def update_user(user_id: int, data: dict, db: Session = Depends(get_db), user: U
     db.commit()
     return {"ok": True}
 
+@app.delete("/api/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if not is_sue_admin(user):
+        raise HTTPException(403, "Нет доступа")
+    if user_id == user.id:
+        raise HTTPException(400, "Нельзя удалить самого себя")
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        raise HTTPException(404, "Не найден")
+    # Обнуляем ссылки на пользователя, чтобы не потерять сами записи ПУ,
+    # загрузки и перемещения (FK nullable) и не упасть по ограничению.
+    db.query(PURegister).filter(PURegister.uploaded_by == user_id).update(
+        {PURegister.uploaded_by: None}, synchronize_session=False)
+    db.query(PUItem).filter(PUItem.approved_by == user_id).update(
+        {PUItem.approved_by: None}, synchronize_session=False)
+    db.query(PUMovement).filter(PUMovement.moved_by == user_id).update(
+        {PUMovement.moved_by: None}, synchronize_session=False)
+    db.delete(u)
+    db.commit()
+    return {"ok": True}
+
 # ==================== API: ПУ ====================
 @app.get("/api/pu/dashboard")
 def dashboard(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
