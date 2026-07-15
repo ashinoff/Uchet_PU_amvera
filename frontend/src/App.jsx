@@ -4499,7 +4499,7 @@ function UsersTab() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left">Логин</th><th className="px-4 py-3 text-left">ФИО</th><th className="px-4 py-3 text-left">Email</th><th className="px-4 py-3 text-left">Роль</th><th className="px-4 py-3 text-left">Подразделение</th><th className="px-4 py-3 text-left">Статус</th><th className="w-24"></th></tr></thead>
           <tbody>
-            {users.map(u => (
+            {[...users].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', 'ru')).map(u => (
               <tr key={u.id} className={`border-t ${!u.is_active ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3 font-medium">{u.username}</td>
                 <td className="px-4 py-3">{u.full_name}</td>
