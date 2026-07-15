@@ -5096,6 +5096,7 @@ function TTREskForm({ item, onSave, onClose }) {
             <option value="">Фазность...</option>
             <option value="1ф">1 фаза</option>
             <option value="3ф">3 фазы</option>
+            <option value="3фтт">3 фазы ТТ</option>
           </select>
           <select value={form.form_factor} onChange={e => setForm({ ...form, form_factor: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
             <option value="">Форм-фактор...</option>
@@ -5583,6 +5584,7 @@ function PUTypeForm({ item, onSave, onClose }) {
         <option value="">Фазность...</option>
         <option value="1ф">1 фаза</option>
         <option value="3ф">3 фазы</option>
+        <option value="3фтт">3 фазы ТТ</option>
       </select>
       <select value={form.voltage} onChange={e => setForm({ ...form, voltage: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
         <option value="">Напряжение...</option>
