@@ -1249,7 +1249,7 @@ const handleSendApproval = async () => {
     if (!item.smr_date) requiredFields.push('Дата СМР')
     
     // Проверяем ЛСР
-    if (!item.lsr_va && !item.lsr_truba) requiredFields.push('ЛСР (выберите Щит с ВА или Трубостойку)')
+    if (!item.lsr_va && !item.lsr_truba) requiredFields.push('ЛСР не подобран автоматически: в справочнике ТТР ЭСК нет строки для этой комбинации (Щит с ВА + фаза + форм-фактор). Добавьте её в Настройки → ТТР ЭСК')
   }
   
   if (requiredFields.length > 0) {
@@ -1908,6 +1908,16 @@ const updateMaterialQty = (materialId, qty) => {
       </div>
     )}
     
+    {/* ЛСР не подобрался — нет подходящей строки в справочнике ТТР ЭСК */}
+    {item.faza && item.form_factor && item.va_type && item.va_type !== 'trubostoyka' && !item.lsr_va && (
+      <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+        <div className="text-sm text-red-700">
+          ⚠ ЛСР не подобран: в справочнике ТТР ЭСК нет строки для «Щит с ВА» = {({ opora: 'Опора', fasad: 'Фасад' }[item.va_type] || item.va_type)}, фаза {item.faza}, форм-фактор {item.form_factor}.
+          Добавьте её в <b>Настройки → ТТР ЭСК</b> — без ЛСР карточку нельзя отправить на согласование.
+        </div>
+      </div>
+    )}
+
     {/* ИТОГО */}
     {(item.lsr_truba || item.lsr_va) && (
       <div className="bg-green-50 rounded-lg p-4 border border-green-200">
