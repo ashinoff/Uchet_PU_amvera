@@ -194,6 +194,7 @@ function Icon({ name, className = "w-5 h-5", strokeWidth = 1.8 }) {
     search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></>,
     refresh: <><path d="M20 11a8 8 0 0 0-14-4l-2 2"/><path d="M4 5v4h4"/><path d="M4 13a8 8 0 0 0 14 4l2-2"/><path d="M20 19v-4h-4"/></>,
     x: <path d="M6 6l12 12M18 6 6 18"/>,
+    menu: <path d="M4 7h16M4 12h16M4 17h16"/>,
     arrowRight: <path d="M5 12h14M13 6l6 6-6 6"/>,
     arrowLeft: <path d="M19 12H5M11 6l-6 6 6 6"/>,
     send: <path d="M4 12 20 4l-6 16-3-7z"/>,
@@ -254,10 +255,40 @@ export default function App() {
   return <AuthProvider><FlickerStyle /><Main /></AuthProvider>
 }
 
+// Заголовки разделов (id страницы → название). Используются в мобильной шапке
+// (Header) и как единый источник имён. Пункты меню строятся отдельно в Sidebar
+// (там ещё роли/бейджи), а здесь — только человекочитаемые названия.
+const NAV_TITLES = {
+  home: 'Главная',
+  pu: 'Приборы учёта',
+  'pu-sklad': 'Склад',
+  'pu-done': 'Завершённые СМР',
+  'pu-actioned': 'Актированные ПУ',
+  analysis: 'Анализ остатков',
+  upload: 'Загрузка',
+  approval: 'Согласование',
+  tz: 'Техн. задания',
+  requests: 'Заявки ЭСК',
+  memo: 'Служебки',
+  settings: 'Настройки',
+  'move-bulk': 'Перемещение',
+}
+
 function Main() {
-  const { user, loading, ssoPending } = useAuth()
+  const { user, loading, ssoPending, canApprove } = useAuth()
   const [page, setPage] = useState('home')
   const [puPreset, setPuPreset] = useState(null)
+  const [menuOpen, setMenuOpen] = useState(false)   // мобильное меню (до lg)
+  const [pendingCount, setPendingCount] = useState(0)
+
+  // Счётчик «на согласовании» — поднят из Sidebar в Main, чтобы им же
+  // подсветить красной точкой плавающую кнопку-бургер. Гард `canApprove`
+  // не даёт дёргать API до загрузки пользователя / без права.
+  useEffect(() => {
+    if (canApprove) {
+      api.get('/pu/pending-approval').then(r => setPendingCount(r.data.length)).catch(() => {})
+    }
+  }, [canApprove, page])
 
   // Навигация по меню сбрасывает пресет фильтров ПУ
   const go = (p) => { setPuPreset(null); setPage(p) }
@@ -270,10 +301,22 @@ function Main() {
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
-      <Sidebar page={page} setPage={go} />
-      <div className="flex-1 ml-60 min-w-0">
-        <Header />
-        <div className="p-4 sm:p-6">
+      {/* Тёмная подложка под выехавшим меню (только моб.), тап — закрыть */}
+      {menuOpen && (
+        <div className="lg:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setMenuOpen(false)} />
+      )}
+
+      <Sidebar
+        page={page}
+        setPage={go}
+        pendingCount={pendingCount}
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+      />
+
+      <div className="flex-1 lg:ml-60 min-w-0">
+        <Header page={page} />
+        <div className="p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6">
           {page === 'home' && <HomePage setPage={go} onOpenPU={openPU} />}
           {page === 'pu' && <PUListPage filter="all" preset={puPreset} />}
           {page === 'pu-sklad' && <PUListPage filter="sklad" />}
@@ -289,20 +332,30 @@ function Main() {
           {page === 'analysis' && <AnalysisPage />}
         </div>
       </div>
+
+      {/* Плавающая кнопка-бургер — только до lg; прячем, пока меню открыто */}
+      {!menuOpen && (
+        <button
+          onClick={() => setMenuOpen(true)}
+          aria-label="Открыть меню"
+          className="lg:hidden fixed bottom-4 right-4 z-40 w-14 h-14 rounded-full bg-[#0B4DA2] text-white shadow-lg flex items-center justify-center active:bg-[#08376f] transition-colors"
+        >
+          <Icon name="menu" className="w-6 h-6" strokeWidth={2} />
+          {pendingCount > 0 && (
+            <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-rose-500 rounded-full border-2 border-white" />
+          )}
+        </button>
+      )}
     </div>
   )
 }
 
 // ==================== САЙДБАР ====================
-function Sidebar({ page, setPage }) {
+function Sidebar({ page, setPage, pendingCount = 0, open = false, onClose }) {
   const { user, canUpload, canManageUsers, canApprove, canCreateTZ, isEskAdmin, isSueAdmin, isResUser, isEskUser, isOksAdmin } = useAuth()
-  const [pendingCount, setPendingCount] = useState(0)
 
-  useEffect(() => {
-    if (canApprove) {
-      api.get('/pu/pending-approval').then(r => setPendingCount(r.data.length)).catch(() => {})
-    }
-  }, [canApprove, page])
+  // Выбор пункта: перейти и закрыть мобильное меню (на десктопе onClose — но-оп).
+  const pick = (id) => { setPage(id); onClose?.() }
 
   const items = [
     { id: 'home', icon: 'home', label: 'Главная', show: true },
@@ -320,7 +373,7 @@ function Sidebar({ page, setPage }) {
     ].filter(i => i.show)
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-60 bg-slate-900 text-slate-300 flex flex-col">
+    <aside className={`fixed left-0 top-0 h-full w-60 bg-slate-900 text-slate-300 flex flex-col z-50 lg:z-auto transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       <div className="px-4 py-5 flex items-center gap-3 border-b border-white/5">
         <BrandMark className="w-9 h-9" />
         <div className="leading-tight">
@@ -332,7 +385,7 @@ function Sidebar({ page, setPage }) {
         {items.map(i => {
           const active = page === i.id
           return (
-            <button key={i.id} onClick={() => setPage(i.id)}
+            <button key={i.id} onClick={() => pick(i.id)}
               className={`group w-full text-left px-3 py-2 rounded-lg flex items-center gap-3 text-sm transition-colors ${active ? 'bg-[#0B4DA2] text-white font-medium shadow-sm' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}>
               <Icon name={i.icon} className={`w-[18px] h-[18px] shrink-0 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
               <span className="flex-1 truncate">{i.label}</span>
@@ -357,11 +410,15 @@ function Sidebar({ page, setPage }) {
   )
 }
 
-function Header() {
+function Header({ page }) {
   const { user } = useAuth()
-  return <header className="h-16 bg-white/90 backdrop-blur border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-10">
-    <h1 className="font-semibold text-slate-900">{user?.unit_name || 'Система учёта ПУ'}</h1>
-    <span className="text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{user?.role_name}</span>
+  return <header className="h-14 lg:h-16 bg-white/90 backdrop-blur border-b border-slate-200 px-4 lg:px-6 flex items-center justify-between sticky top-0 z-10">
+    {/* Моб.: название текущего раздела; десктоп (lg): подразделение — как было */}
+    <h1 className="font-semibold text-slate-900 truncate min-w-0">
+      <span className="lg:hidden">{NAV_TITLES[page] || 'Система учёта ПУ'}</span>
+      <span className="hidden lg:inline">{user?.unit_name || 'Система учёта ПУ'}</span>
+    </h1>
+    <span className="shrink-0 ml-2 lg:ml-0 text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full whitespace-nowrap">{user?.role_name}</span>
   </header>
 }
 
