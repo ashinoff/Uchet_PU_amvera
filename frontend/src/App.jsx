@@ -549,7 +549,7 @@ function HomePage({ setPage, onOpenPU }) {
         <h2 className="text-lg font-semibold text-slate-900 mb-4">Быстрый доступ</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {shortcuts.map(s => (
-            <button key={s.id} onClick={() => setPage(s.id)} className="group bg-white p-5 rounded-xl border border-slate-200 hover:border-[#0B4DA2]/40 hover:shadow-md text-left transition">
+            <button key={s.id} onClick={() => setPage(s.id)} className="group bg-white p-4 lg:p-5 rounded-xl border border-slate-200 hover:border-[#0B4DA2]/40 hover:shadow-md text-left transition">
               <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-[#0B4DA2]/8 text-[#0B4DA2] mb-3 group-hover:bg-[#0B4DA2] group-hover:text-white transition-colors">
                 <Icon name={s.icon} className="w-5 h-5" />
               </span>
@@ -624,7 +624,7 @@ function StatGroup({ icon, title, data, unitType, onPick }) {
       <h3 className="flex items-center gap-2 text-sm font-medium text-slate-500 mb-2">
         <Icon name={icon} className="w-4 h-4" /> {title}
       </h3>
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {metrics.map(m => (
           <button key={m.key} onClick={() => onPick(m.preset)} title={`Открыть: ${m.label}`}
             className="bg-white rounded-xl border border-slate-200 p-3 text-left hover:shadow-sm hover:border-[#0B4DA2]/40 active:bg-slate-50 transition">

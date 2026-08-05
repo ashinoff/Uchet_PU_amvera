@@ -149,6 +149,12 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-08-06** — Мобильная версия, ЭТАП 4 (Главная). `StatGroup`: сетка метрик
+  `grid-cols-3 sm:grid-cols-6` → `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`
+  (на телефоне 2 колонки, крупнее и тапабельнее; на `lg` — 6 как было). Карточки
+  «Быстрого доступа»: `p-5` → `p-4 lg:p-5` (компактнее на моб., десктоп как был).
+  Логика перехода по цифрам (`onPick`/пресеты) не менялась. `StatCard` —
+  неиспользуемый компонент, не трогал. Сборка ок.
 - **2026-08-06** — Мобильная версия, ЭТАП 3 (карточка ПУ + модалки).
   (1) `PUCardModal`: на моб. полноэкранная (outer `items-stretch`, inner
   `rounded-none max-w-none` + full height; на `lg` — `rounded-xl max-w-2xl
