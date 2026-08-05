@@ -1172,8 +1172,8 @@ function MoveModal({ units, onClose, onMove, count }) {
   const [unitId, setUnitId] = useState('')
   const [comment, setComment] = useState('')
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-semibold mb-4">Переместить {count} ПУ</h2>
         <select value={unitId} onChange={e => setUnitId(e.target.value)} className="w-full px-3 py-2 border rounded-lg mb-4">
           <option value="">Выберите подразделение...</option>
@@ -1192,8 +1192,8 @@ function MoveModal({ units, onClose, onMove, count }) {
 function DeleteModal({ onClose, onDelete, count }) {
   const [code, setCode] = useState('')
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-semibold mb-4 text-red-600"><Icon name="trash" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Удалить {count} ПУ?</h2>
         <p className="text-gray-600 mb-4">Это действие нельзя отменить. Введите код администратора:</p>
         <input type="password" placeholder="Код админа" value={code} onChange={e => setCode(e.target.value)} className="w-full px-3 py-2 border rounded-lg mb-4" />
@@ -1220,8 +1220,8 @@ function DeleteWithCodeModal({ title, onClose, onDelete }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-semibold mb-4 text-red-600"><Icon name="trash" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> {title}</h2>
         <p className="text-gray-600 mb-4">Это действие нельзя отменить. Введите код администратора:</p>
         <input 
@@ -1806,16 +1806,19 @@ const updateMaterialQty = (materialId, qty) => {
       ]
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Карточка ПУ</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+    <div className="fixed inset-0 bg-black/50 flex items-stretch justify-center z-50 lg:items-center lg:p-4" onClick={onClose}>
+      <div className="pu-card bg-white w-full overflow-y-auto rounded-none max-w-none lg:rounded-xl lg:max-w-2xl lg:max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 z-10 bg-white border-b px-4 lg:px-6 py-3 lg:py-4 flex justify-between items-center gap-2">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold leading-tight">Карточка ПУ</h2>
+            <div className="lg:hidden font-mono text-xs text-gray-500 truncate">{item.serial_number}</div>
+          </div>
+          <button onClick={onClose} aria-label="Закрыть" className="shrink-0 -mr-2 w-11 h-11 grid place-items-center text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
-        
-        <div className="p-6 space-y-4">
+
+        <div className="p-4 lg:p-6 space-y-4">
           {/* Основное */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Серийный номер</label>
               <input type="text" value={item.serial_number || ''} disabled className="w-full px-3 py-2 border rounded-lg bg-gray-50" />
@@ -1831,7 +1834,7 @@ const updateMaterialQty = (materialId, qty) => {
             <input type="text" value={item.pu_type || ''} disabled className="w-full px-3 py-2 border rounded-lg bg-gray-50" />
           </div>
 
-          <div className={`grid ${isEsk ? 'grid-cols-3' : 'grid-cols-4'} gap-4`}>
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${isEsk ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4`}>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Статус *</label>
               <select value={item.status || ''} onChange={e => update('status', e.target.value)} disabled={!canEdit} className="w-full px-3 py-2 border rounded-lg">
@@ -1957,7 +1960,7 @@ const updateMaterialQty = (materialId, qty) => {
             <>
               <hr />
               <h3 className="font-medium">ТТР (для РЭС)</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">ТТР орг. учета</label>
                   <select value={item.ttr_ou_id || ''} onChange={e => update('ttr_ou_id', parseInt(e.target.value) || null)} disabled={!canEdit} className="w-full px-3 py-2 border rounded-lg">
@@ -2134,7 +2137,7 @@ const updateMaterialQty = (materialId, qty) => {
     {item.trubostoyka === true && item.lsr_truba && (
       <div className="bg-orange-50 rounded-lg p-3">
         <div className="text-sm font-medium text-orange-700 mb-2"><Icon name="wrench" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Трубостойка</div>
-        <div className="grid grid-cols-3 gap-2 text-sm">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
           <div><span className="text-gray-600">ЛСР:</span> <span className="font-medium">{item.lsr_truba}</span></div>
           <div><span className="text-gray-600">Без НДС:</span> <span className="font-medium">{item.price_truba_no_nds?.toLocaleString()} ₽</span></div>
           <div><span className="text-gray-600">С НДС:</span> <span className="font-medium">{item.price_truba_with_nds?.toLocaleString()} ₽</span></div>
@@ -2146,7 +2149,7 @@ const updateMaterialQty = (materialId, qty) => {
     {item.faza && item.form_factor && item.va_type && item.lsr_va && (
       <div className="bg-blue-50 rounded-lg p-3">
         <div className="text-sm font-medium text-blue-700 mb-2"><Icon name="package" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Щит с ВА</div>
-        <div className="grid grid-cols-3 gap-2 text-sm">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
           <div><span className="text-gray-600">ЛСР:</span> <span className="font-medium">{item.lsr_va}</span></div>
           <div><span className="text-gray-600">Без НДС:</span> <span className="font-medium">{item.price_va_no_nds?.toLocaleString()} ₽</span></div>
           <div><span className="text-gray-600">С НДС:</span> <span className="font-medium">{item.price_va_with_nds?.toLocaleString()} ₽</span></div>
@@ -2437,14 +2440,14 @@ const updateMaterialQty = (materialId, qty) => {
         </div>
 
         {canEdit && (
-          <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end gap-2">
-            <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-lg">Отмена</button>
+          <div className="sticky bottom-0 z-10 bg-gray-50 border-t px-4 lg:px-6 py-3 lg:py-4 flex justify-end gap-2">
+            <button onClick={onClose} className="px-4 py-2 min-h-[44px] lg:min-h-0 bg-gray-200 rounded-lg">Отмена</button>
             {(isEsk || isOks) && item.status === 'TECHPRIS' && item.approval_status !== 'APPROVED' && item.approval_status !== 'PENDING' && (
-              <button onClick={handleSendApproval} disabled={saving} className="px-4 py-2 bg-orange-500 text-white rounded-lg disabled:opacity-50">
+              <button onClick={handleSendApproval} disabled={saving} className="px-4 py-2 min-h-[44px] lg:min-h-0 bg-orange-500 text-white rounded-lg disabled:opacity-50">
                 <Icon name="send" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> На согласование
               </button>
             )}
-            <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">{saving ? 'Сохранение...' : 'Сохранить'}</button>
+            <button onClick={handleSave} disabled={saving} className="px-4 py-2 min-h-[44px] lg:min-h-0 bg-blue-600 text-white rounded-lg disabled:opacity-50">{saving ? 'Сохранение...' : 'Сохранить'}</button>
           </div>
         )}
       </div>
@@ -2916,8 +2919,8 @@ function RejectModal({ item, onClose, onReject }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-semibold mb-2">Отклонить ПУ</h2>
         <p className="text-gray-600 text-sm mb-4">Серийный номер: <span className="font-mono">{item.serial_number}</span></p>
         
@@ -4774,8 +4777,8 @@ function UsersTab() {
 function UserModal({ user, roles, units, onClose, onSave }) {
   const [form, setForm] = useState({ username: user?.username || '', password: '', full_name: user?.full_name || '', email: user?.email || '', role_id: user?.role?.id || '', unit_id: user?.unit?.id || '' })
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-semibold mb-4">{user ? 'Редактировать' : 'Новый пользователь'}</h2>
         <div className="space-y-3">
           <input type="text" placeholder="Логин" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100" />
@@ -4854,8 +4857,8 @@ function MastersTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">{modal.master ? 'Редактировать' : 'Новый мастер'}</h2>
             <MasterForm master={modal.master} units={units} onSave={handleSave} onClose={() => setModal(null)} />
           </div>
@@ -4953,8 +4956,8 @@ function TTRResTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый ТТР'}</h2>
             <TTRResForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} />
           </div>
@@ -5065,10 +5068,10 @@ function TTRMaterialsModal({ ttr, onClose }) {
     onClose()
   }
 
-  if (loading) return <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-xl p-8"><RossetiLoader /></div></div>
+  if (loading) return <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50"><div className="bg-white rounded-xl p-8"><RossetiLoader /></div></div>
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-lg max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="p-4 border-b flex justify-between items-center">
           <h2 className="font-semibold"><Icon name="package" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Материалы для {ttr.code}</h2>
@@ -5151,10 +5154,10 @@ function TTRPUTypesModal({ ttr, onClose }) {
     onClose()
   }
 
-  if (loading) return <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="bg-white rounded-xl p-8"><RossetiLoader /></div></div>
+  if (loading) return <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50"><div className="bg-white rounded-xl p-8"><RossetiLoader /></div></div>
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-lg max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="p-4 border-b flex justify-between items-center">
           <h2 className="font-semibold"><Icon name="package" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Типы ПУ для {ttr.code}</h2>
@@ -5282,8 +5285,8 @@ function TTREskTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый ТТР ЭСК'}</h2>
             <TTREskForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} />
           </div>
@@ -5426,8 +5429,8 @@ function MaterialsTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый материал'}</h2>
             <MaterialForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} />
           </div>
@@ -5521,8 +5524,8 @@ function ContractorsTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый подрядчик'}</h2>
             <NominalForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} placeholder="Наименование подрядчика" />
           </div>
@@ -5608,8 +5611,8 @@ function PUTypesTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый тип ПУ'}</h2>
             <PUTypeForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} />
           </div>
@@ -5687,8 +5690,8 @@ function VANominalsTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый номинал ВА'}</h2>
             <NominalForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} placeholder="Например: 16А, 25А, 32А" />
           </div>
@@ -5767,8 +5770,8 @@ function TTNominalsTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый номинал ТТ'}</h2>
             <NominalForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} placeholder="Например: 100/5, 200/5, 400/5" />
           </div>
@@ -6259,8 +6262,8 @@ function BulkUpdateTab() {
 function ClearDBModal({ onClose, onClear }) {
   const [code, setCode] = useState('')
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-semibold mb-4 text-red-600"><Icon name="alert" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Очистка базы данных</h2>
         <p className="text-gray-600 mb-4">Все ПУ и загрузки будут удалены. Это действие нельзя отменить!</p>
         <input type="password" placeholder="Код администратора" value={code} onChange={e => setCode(e.target.value)} className="w-full px-3 py-2 border rounded-lg mb-4" />

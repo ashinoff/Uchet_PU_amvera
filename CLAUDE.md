@@ -149,6 +149,22 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-08-06** — Мобильная версия, ЭТАП 3 (карточка ПУ + модалки).
+  (1) `PUCardModal`: на моб. полноэкранная (outer `items-stretch`, inner
+  `rounded-none max-w-none` + full height; на `lg` — `rounded-xl max-w-2xl
+  max-h-[90vh]` как было). Шапка `sticky top-0 z-10` + серийный номер под
+  заголовком (`lg:hidden`), крестик 44px (`w-11 h-11`). Футер `sticky bottom-0
+  z-10`, кнопки `min-h-[44px] lg:min-h-0`. Сетки: `grid-cols-2`→
+  `grid-cols-1 sm:grid-cols-2`, `grid-cols-3/4`→`… lg:grid-cols-3/4`, инфо-
+  `grid-cols-3`→`grid-cols-2 lg:grid-cols-3`. (2) Все мелкие модалки (общий
+  паттерн `bg-white rounded-xl p-6 w-full max-w-md` + `items-center …z-50`)
+  двумя `replace_all` переведены в bottom-sheet до `lg` (`items-end
+  lg:items-center`, `rounded-t-2xl lg:rounded-xl max-h-[90vh] overflow-y-auto
+  lg:max-h-none`), на десктопе — по центру как было. **Отступление от ТЗ:**
+  16px-шрифт полей (анти-зум iPhone) и `min-height:44px` в карточке сделал
+  ОДНИМ mobile-CSS-правилом в `index.css` (`@media max-width:1023px`), а не
+  правкой ~100 инпутов вручную — безопаснее и десктоп не трогает (это не новая
+  зависимость). Сборка ок.
 - **2026-08-06** — Мобильная версия, ЭТАП 2 (`PUListPage`: таблица → карточки).
   Десктоп-таблица обёрнута в `hidden lg:block` (не изменена), добавлены моб.
   блоки (`lg:hidden`), state/данные общие. (1) Моб. панель сверху: поиск по №
