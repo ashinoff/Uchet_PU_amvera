@@ -149,6 +149,14 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-08-06** — Мобильная версия, ЭТАП 5а (Login/Upload/Approval). LoginPage:
+  поля/кнопка `py-2.5`→`py-3 lg:py-2.5` (≥44px на моб.). UploadPage: заголовок
+  `text-xl lg:text-2xl`, зона `p-8`→`p-6 lg:p-8`, «История загрузок» — таблица
+  `hidden lg:block` + карточки `lg:hidden`. ApprovalPage: кнопки Выгрузить/
+  Обновить компактные иконки на моб.; таблица (11 колонок) → карточки до `lg`
+  с крупными кнопками «Согласовать»(зелёная)/«Отклонить»(красная)/«Рассмотреть»
+  (ОКС), разворот деталей (`ReviewDetail`) внутри карточки. Десктоп не тронут.
+  Осталось в этапе 5: TZ/Requests/Memo, Analysis (sticky 1-я колонка), Settings.
 - **2026-08-06** — Мобильная версия, ЭТАП 4 (Главная). `StatGroup`: сетка метрик
   `grid-cols-3 sm:grid-cols-6` → `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`
   (на телефоне 2 колонки, крупнее и тапабельнее; на `lg` — 6 как было). Карточки

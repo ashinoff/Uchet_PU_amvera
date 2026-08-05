@@ -469,18 +469,18 @@ function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1.5">Логин</label>
-            <input type="text" placeholder="Введите логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4DA2]/30 focus:border-[#0B4DA2] transition" />
+            <input type="text" placeholder="Введите логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full px-4 py-3 lg:py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4DA2]/30 focus:border-[#0B4DA2] transition" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1.5">Пароль</label>
-            <input type="password" placeholder="Введите пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4DA2]/30 focus:border-[#0B4DA2] transition" />
+            <input type="password" placeholder="Введите пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 lg:py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4DA2]/30 focus:border-[#0B4DA2] transition" />
           </div>
           {error && (
             <div className="flex items-center gap-2 text-rose-600 text-sm bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
               <Icon name="alert" className="w-4 h-4 shrink-0" /> {error}
             </div>
           )}
-          <button type="submit" disabled={loading} className="w-full py-2.5 bg-[#0B4DA2] text-white font-medium rounded-lg hover:bg-[#093f86] active:bg-[#08376f] disabled:opacity-50 transition-colors">
+          <button type="submit" disabled={loading} className="w-full py-3 lg:py-2.5 bg-[#0B4DA2] text-white font-medium rounded-lg hover:bg-[#093f86] active:bg-[#08376f] disabled:opacity-50 transition-colors">
             {loading ? 'Вход…' : 'Войти'}
           </button>
         </form>
@@ -2501,9 +2501,9 @@ function UploadPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Загрузка реестра ПУ</h1>
+      <h1 className="text-xl lg:text-2xl font-bold">Загрузка реестра ПУ</h1>
 
-      <div className="bg-white rounded-xl border p-8">
+      <div className="bg-white rounded-xl border p-6 lg:p-8">
         {result ? (
           <div className="text-center">
             <div className="mb-4 flex justify-center"><span className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-600"><Icon name="checkCircle" className="w-9 h-9" /></span></div>
@@ -2545,13 +2545,26 @@ function UploadPage() {
       {registers.length > 0 && (
         <div>
           <h2 className="text-lg font-semibold mb-4">История загрузок</h2>
-          <div className="bg-white rounded-xl border overflow-hidden">
+          {/* Десктоп — таблица (как была) */}
+          <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left">Файл</th><th className="px-4 py-3 text-left">Кол-во</th><th className="px-4 py-3 text-left">Дата</th></tr></thead>
               <tbody>
                 {registers.map(r => <tr key={r.id} className="border-t"><td className="px-4 py-3">{r.filename}</td><td className="px-4 py-3">{r.items_count}</td><td className="px-4 py-3 text-gray-500">{new Date(r.uploaded_at).toLocaleString('ru')}</td></tr>)}
               </tbody>
             </table>
+          </div>
+          {/* Мобильный — карточки */}
+          <div className="lg:hidden space-y-2">
+            {registers.map(r => (
+              <div key={r.id} className="bg-white rounded-xl border p-3">
+                <div className="font-medium text-slate-800 break-words">{r.filename}</div>
+                <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+                  <span>Загружено: {r.items_count}</span>
+                  <span>{new Date(r.uploaded_at).toLocaleString('ru')}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -2806,18 +2819,24 @@ function ApprovalPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-2">
         <div>
-          <h1 className="text-2xl font-bold">Согласование СМР</h1>
-          <p className="text-gray-500">ПУ от ЭСК и ОКС на проверку</p>
+          <h1 className="text-xl lg:text-2xl font-bold">Согласование СМР</h1>
+          <p className="text-gray-500 text-sm lg:text-base">ПУ от ЭСК и ОКС на проверку</p>
         </div>
-        <div className="flex gap-2">
+        {/* Десктоп — кнопки с текстом; моб. — компактные иконки */}
+        <div className="hidden lg:flex gap-2">
           <button onClick={handleExport} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"><Icon name="download" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Выгрузить в Excel</button>
           <button onClick={load} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"><Icon name="refresh" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Обновить</button>
         </div>
+        <div className="flex lg:hidden gap-2 shrink-0">
+          <button onClick={handleExport} aria-label="Выгрузить в Excel" className="h-11 w-11 grid place-items-center bg-green-600 text-white rounded-lg"><Icon name="download" className="w-5 h-5" /></button>
+          <button onClick={load} aria-label="Обновить" className="h-11 w-11 grid place-items-center bg-gray-100 rounded-lg"><Icon name="refresh" className="w-5 h-5" /></button>
+        </div>
       </div>
 
-      <div className="bg-white rounded-xl border overflow-hidden">
+      {/* Десктоп — таблица (как была) */}
+      <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
         {loading ? <div className="p-8"><RossetiLoader /></div> : items.length === 0 ? (
           <div className="p-8 text-center text-gray-500">Нет ПУ на согласовании</div>
         ) : (
@@ -2884,8 +2903,56 @@ function ApprovalPage() {
         )}
       </div>
 
+      {/* Мобильный — карточки с крупными кнопками */}
+      <div className="lg:hidden">
+        {loading ? (
+          <div className="p-8 bg-white rounded-xl border"><RossetiLoader /></div>
+        ) : items.length === 0 ? (
+          <div className="p-8 text-center text-gray-500 bg-white rounded-xl border">Нет ПУ на согласовании</div>
+        ) : (
+          <div className="space-y-2">
+            {items.map(i => (
+              <div key={i.id} className="bg-white rounded-xl border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-semibold text-base text-slate-900 truncate">{i.serial_number}</span>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${i.source === 'ОКС' ? 'bg-indigo-100 text-indigo-700' : 'bg-orange-100 text-orange-700'}`}>{i.source || 'ЭСК'}</span>
+                </div>
+                <div className="mt-1 text-sm text-slate-600 truncate">{i.pu_type || '—'}</div>
+                <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-500">
+                  <div className="truncate">РЭС: {i.res_name || '—'}</div>
+                  <div className="truncate">Потребитель: {i.consumer || '—'}</div>
+                  <div className="truncate">Договор: {i.contract_number || '—'}</div>
+                  <div>Фаза: {i.faza || '—'}</div>
+                  <div>Трубостойка: {i.trubostoyka ? 'да' : '—'}</div>
+                  <div className="truncate">№ ТТР ЭСК: {i.lsr_va || i.lsr_truba || '—'}</div>
+                  <div>Дата СМР: {i.smr_date || '—'}</div>
+                </div>
+                <button onClick={() => toggleExpand(i.id)} className="mt-2 text-sm text-blue-600">
+                  {expanded === i.id ? 'Скрыть детали' : 'Показать детали'}
+                </button>
+                {expanded === i.id && (
+                  <div className="mt-2 bg-slate-50 rounded-lg p-3">
+                    <ReviewDetail detail={details[i.id]} source={i.source} loading={loadingDetail && !details[i.id]} />
+                  </div>
+                )}
+                <div className="mt-3 flex gap-2">
+                  {i.source === 'ОКС' ? (
+                    <button onClick={() => setReviewModal(i)} className="flex-1 h-11 bg-indigo-600 text-white rounded-lg text-sm font-medium"><Icon name="search" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Рассмотреть</button>
+                  ) : (
+                    <>
+                      <button onClick={() => handleApprove(i.id)} className="flex-1 h-11 bg-green-600 text-white rounded-lg text-sm font-medium"><Icon name="check" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Согласовать</button>
+                      <button onClick={() => setRejectModal(i)} className="flex-1 h-11 bg-red-500 text-white rounded-lg text-sm font-medium"><Icon name="x" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Отклонить</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {rejectModal && (
-        <RejectModal 
+        <RejectModal
           item={rejectModal} 
           onClose={() => setRejectModal(null)} 
           onReject={handleReject} 
