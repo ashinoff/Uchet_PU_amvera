@@ -138,6 +138,14 @@ function FlickerStyle() {
         animation: svetFlicker 5.5s infinite both; will-change: opacity;
       }
       @media (prefers-reduced-motion: reduce) { .svetlyachok, .svetlyachok-light { animation: none; } }
+
+      /* Скролл меню — в тон тёмного сайдбара (slate-900), чуть светлее,
+         чтобы ползунок не выделялся яркой полосой сверху донизу. */
+      .sidebar-scroll { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.12) transparent; }
+      .sidebar-scroll::-webkit-scrollbar { width: 6px; }
+      .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+      .sidebar-scroll::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,.10); border-radius: 8px; }
+      .sidebar-scroll::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,.18); }
     `}</style>
   )
 }
@@ -287,7 +295,7 @@ function Main() {
 
 // ==================== САЙДБАР ====================
 function Sidebar({ page, setPage }) {
-  const { user, logout, canUpload, canManageUsers, canApprove, canCreateTZ, isEskAdmin, isSueAdmin, isResUser, isEskUser, isOksAdmin } = useAuth()
+  const { user, canUpload, canManageUsers, canApprove, canCreateTZ, isEskAdmin, isSueAdmin, isResUser, isEskUser, isOksAdmin } = useAuth()
   const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
@@ -320,7 +328,7 @@ function Sidebar({ page, setPage }) {
           <div className="text-[11px] svetlyachok">ПК «Светлячок»</div>
         </div>
       </div>
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto sidebar-scroll">
         {items.map(i => {
           const active = page === i.id
           return (
@@ -339,9 +347,6 @@ function Sidebar({ page, setPage }) {
           <div className="text-xs text-slate-400 truncate">{user?.unit_name}</div>
           <div className="text-[11px] text-slate-500 truncate">{user?.role_name}</div>
         </div>
-        <button onClick={logout} className="w-full px-3 py-2 flex items-center gap-3 text-sm text-slate-300 hover:bg-white/5 hover:text-white rounded-lg transition-colors">
-          <Icon name="logout" className="w-[18px] h-[18px]" /> Выйти
-        </button>
       </div>
       <div className="px-4 py-3 border-t border-white/5 text-[11px] text-slate-500">
         <div className="text-slate-400 font-medium mb-0.5">Техническая поддержка</div>
