@@ -667,6 +667,7 @@ function PUListPage({ filter = 'all', preset = null }) {
   const [loading, setLoading] = useState(true)
   const [sortField, setSortField] = useState('created_at')
   const [sortDir, setSortDir] = useState('desc')
+  const [filtersOpen, setFiltersOpen] = useState(false)   // моб. bottom-sheet фильтров
 
   // Debounce: после паузы переносим введённое в debounced-значения и сбрасываем на 1-ю страницу
   useEffect(() => {
@@ -806,11 +807,36 @@ function PUListPage({ filter = 'all', preset = null }) {
     ? [{ value: 'SKLAD', label: 'Склад' }, { value: 'TECHPRIS', label: 'Техприс' }]
     : Object.entries(statusLabels).map(([k, v]) => ({ value: k, label: v }))
 
+  // ── Мобильные помощники (Этап 2) ──
+  // Варианты сортировки для select в bottom-sheet (заменяет SortHeader на телефоне)
+  const sortOptions = [
+    { v: 'created_at|desc', l: 'Дата: новые сверху' },
+    { v: 'created_at|asc', l: 'Дата: старые сверху' },
+    { v: 'serial_number|asc', l: 'Серийный №: А–Я' },
+    { v: 'serial_number|desc', l: 'Серийный №: Я–А' },
+    { v: 'status|asc', l: 'Статус' },
+    { v: 'pu_type|asc', l: 'Тип ПУ' },
+    { v: 'current_unit_name|asc', l: 'Подразделение' },
+    { v: 'approval_status|asc', l: 'Согласование' },
+  ]
+  // Сколько фильтров активно (для числа на кнопке «Фильтры»); поиск по № не считаем — он всегда на виду
+  const activeFilters = [status, unitFilter, unitTypeFilter !== 'all' ? 'x' : '', contractSearch, lsSearch].filter(Boolean).length
+
+  // Человекочитаемое назначение ПУ (для карточек и таблицы)
+  const naznText = (n) => n === 'IZHC' ? 'ИЖЦ' : n === 'TECHPRIS' ? 'Техприс' : n === 'ZAMENA' ? 'Замена' : '—'
+  // Компактный бейдж согласования для мобильной карточки
+  const approvalBadge = (s) => {
+    if (s === 'APPROVED') return <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded">Согласовано</span>
+    if (s === 'PENDING') return <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded">На согл.</span>
+    if (s === 'REJECTED') return <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded">Отклонено</span>
+    return null
+  }
+
   return (
   <div className="space-y-4">
-    <div className="flex justify-between items-center">
+    <div className="flex justify-between items-center gap-2">
       <div>
-        <h1 className="text-2xl font-bold">
+        <h1 className="text-xl lg:text-2xl font-bold">
           {dynFilter === 'all' && 'Все приборы учёта'}
           {dynFilter === 'sklad' && 'Склад'}
           {dynFilter === 'done' && 'Завершённые СМР'}
@@ -818,13 +844,34 @@ function PUListPage({ filter = 'all', preset = null }) {
         </h1>
         <p className="text-gray-500">Всего: {total}</p>
       </div>
-      <div className="flex gap-2">
+      {/* Кнопки действий — на десктопе с текстом (как было) */}
+      <div className="hidden lg:flex gap-2">
         <button onClick={handleExport} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"><Icon name="download" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Выгрузить в Excel</button>
         <button onClick={load} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"><Icon name="refresh" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Обновить</button>
       </div>
     </div>
 
-      <div className="bg-white rounded-xl border p-4 space-y-3">
+    {/* ── Мобильная панель: поиск + компактные иконки + Фильтры (до lg) ── */}
+    <div className="lg:hidden flex items-center gap-2">
+      <div className="relative flex-1 min-w-0">
+        <input type="text" placeholder="Поиск по № ПУ..." value={search} onChange={e => setSearch(e.target.value)}
+          className="w-full h-11 px-3 pr-8 border rounded-lg text-base" />
+        {search && (
+          <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+            <Icon name="x" className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+      <button onClick={handleExport} aria-label="Выгрузить в Excel" className="h-11 w-11 shrink-0 grid place-items-center bg-green-600 text-white rounded-lg"><Icon name="download" className="w-5 h-5" /></button>
+      <button onClick={load} aria-label="Обновить" className="h-11 w-11 shrink-0 grid place-items-center bg-gray-100 rounded-lg"><Icon name="refresh" className="w-5 h-5" /></button>
+      <button onClick={() => setFiltersOpen(true)} className="relative h-11 shrink-0 px-3 flex items-center gap-1 bg-white border rounded-lg text-sm">
+        <Icon name="settings" className="w-4 h-4" /> Фильтры
+        {activeFilters > 0 && <span className="ml-0.5 min-w-5 h-5 px-1 grid place-items-center bg-[#0B4DA2] text-white text-xs rounded-full">{activeFilters}</span>}
+      </button>
+    </div>
+
+      {/* Панель фильтров: на десктопе как была; на мобильном — в bottom-sheet */}
+      <div className="hidden lg:block bg-white rounded-xl border p-4 space-y-3">
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-48">
   <input 
@@ -905,7 +952,7 @@ function PUListPage({ filter = 'all', preset = null }) {
       </div>
 
       {selected.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 hidden lg:flex items-center justify-between">
           <span className="text-blue-700 font-medium">Выбрано: {selected.length}</span>
           <div className="flex gap-2">
             {canMove && <button onClick={() => setMoveModal(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg"><Icon name="arrowRight" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Переместить</button>}
@@ -918,7 +965,7 @@ function PUListPage({ filter = 'all', preset = null }) {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border overflow-x-auto">
+      <div className="hidden lg:block bg-white rounded-xl border overflow-x-auto">
         {loading ? <div className="p-8"><RossetiLoader /></div> : (
           <table className="w-full text-sm min-w-[820px]">
             <thead className="bg-gray-50">
@@ -970,6 +1017,143 @@ function PUListPage({ filter = 'all', preset = null }) {
           </div>
         )}
       </div>
+
+      {/* ── Мобильный список карточек (до lg) ── */}
+      <div className="lg:hidden">
+        {loading ? (
+          <div className="p-8 bg-white rounded-xl border"><RossetiLoader /></div>
+        ) : items.length === 0 ? (
+          <div className="p-8 text-center text-gray-400 bg-white rounded-xl border">Ничего не найдено</div>
+        ) : (
+          <div className="space-y-2">
+            {items.map(i => {
+              const nz = naznText(i.naznachenie)
+              const date = i.uploaded_at ? new Date(i.uploaded_at).toLocaleDateString('ru') : null
+              return (
+                <div key={i.id} onClick={() => setCardModal(i.id)}
+                  className="bg-white rounded-xl border border-slate-200 p-3 active:bg-slate-50">
+                  <div className="flex items-start gap-2.5">
+                    {canMove && (
+                      <input type="checkbox" className="mt-1 w-5 h-5 shrink-0"
+                        checked={selected.includes(i.id)}
+                        onClick={e => e.stopPropagation()}
+                        onChange={() => setSelected(s => s.includes(i.id) ? s.filter(x => x !== i.id) : [...s, i.id])} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono font-semibold text-base text-slate-900 truncate">{i.serial_number}</span>
+                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs ${statusColors[i.status] || 'bg-gray-100'}`}>{statusLabels[i.status] || i.status}</span>
+                      </div>
+                      <div className="mt-1 text-sm text-slate-600 truncate">{i.pu_type || '—'}</div>
+                      <div className="text-xs text-slate-500 truncate">{i.current_unit_name || '—'}</div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                        {nz !== '—' && <span className="px-1.5 py-0.5 bg-slate-100 rounded">{nz}</span>}
+                        {i.tz_number && <span>ТЗ: {i.tz_number}</span>}
+                        {i.request_number && <span>Заявка: {i.request_number}</span>}
+                        {approvalBadge(i.approval_status)}
+                        {date && <span className="ml-auto whitespace-nowrap">{date}</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Мобильная пагинация — крупные кнопки (≥44px) */}
+        {pages > 1 && (
+          <div className="flex items-center justify-between pt-3">
+            <span className="text-sm text-gray-500">Стр. {page} из {pages}</span>
+            <div className="flex gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label="Назад" className="h-11 w-11 grid place-items-center border rounded-lg bg-white disabled:opacity-50"><Icon name="arrowLeft" className="w-5 h-5" /></button>
+              <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages} aria-label="Вперёд" className="h-11 w-11 grid place-items-center border rounded-lg bg-white disabled:opacity-50"><Icon name="arrowRight" className="w-5 h-5" /></button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Мобильная закреплённая панель действий при выборе (до lg) ── */}
+      {selected.length > 0 && (
+        <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] p-3">
+          <div className="flex items-center gap-2 overflow-x-auto pr-16">
+            <span className="shrink-0 text-sm font-medium text-blue-700 whitespace-nowrap">Выбрано: {selected.length}</span>
+            {canMove && <button onClick={() => setMoveModal(true)} className="shrink-0 inline-flex items-center gap-1 h-11 px-3 bg-blue-600 text-white rounded-lg text-sm whitespace-nowrap"><Icon name="arrowRight" className="w-4 h-4" /> Переместить</button>}
+            {(isEskUser || isEskAdmin || isOksUser || isOksAdmin) && <button onClick={handleSendApprovalBatch} className="shrink-0 inline-flex items-center gap-1 h-11 px-3 bg-orange-500 text-white rounded-lg text-sm whitespace-nowrap"><Icon name="send" className="w-4 h-4" /> На согласование</button>}
+            {canDelete && <button onClick={() => setDeleteModal(true)} className="shrink-0 inline-flex items-center gap-1 h-11 px-3 bg-red-600 text-white rounded-lg text-sm whitespace-nowrap"><Icon name="trash" className="w-4 h-4" /> Удалить</button>}
+            <button onClick={() => setSelected([])} className="shrink-0 h-11 px-3 bg-gray-100 rounded-lg text-sm whitespace-nowrap">Отмена</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Мобильный bottom-sheet фильтров (до lg) ── */}
+      {filtersOpen && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setFiltersOpen(false)} />
+          <div className="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl max-h-[90vh] overflow-y-auto p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-lg">Фильтры и сортировка</h3>
+              <button onClick={() => setFiltersOpen(false)} aria-label="Закрыть" className="w-11 h-11 -mr-2 grid place-items-center text-gray-500"><Icon name="x" className="w-5 h-5" /></button>
+            </div>
+
+            <label className="block">
+              <span className="text-sm text-gray-500">Сортировка</span>
+              <select value={`${sortField}|${sortDir}`} onChange={e => { const [f, d] = e.target.value.split('|'); setSortField(f); setSortDir(d); setPage(1) }}
+                className="mt-1 w-full h-11 px-3 border rounded-lg text-base">
+                {sortOptions.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-sm text-gray-500">Статус</span>
+              <select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }} className="mt-1 w-full h-11 px-3 border rounded-lg text-base">
+                <option value="">Все статусы</option>
+                {statusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </label>
+
+            {(isSueAdmin || isEskAdmin || isOksAdmin) && (
+              <label className="block">
+                <span className="text-sm text-gray-500">Подразделение</span>
+                <select value={unitFilter} onChange={e => { setUnitFilter(e.target.value); setPage(1) }} className="mt-1 w-full h-11 px-3 border rounded-lg text-base">
+                  <option value="">Все подразделения</option>
+                  {visibleUnits.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </label>
+            )}
+
+            {isSueAdmin && (
+              <label className="block">
+                <span className="text-sm text-gray-500">Тип подразделения</span>
+                <select value={unitTypeFilter} onChange={e => { setUnitTypeFilter(e.target.value); setPage(1) }} className="mt-1 w-full h-11 px-3 border rounded-lg text-base">
+                  <option value="all">Все</option>
+                  <option value="res">РЭС</option>
+                  <option value="esk">ЭСК</option>
+                  <option value="oks">ОКС</option>
+                </select>
+              </label>
+            )}
+
+            <label className="block">
+              <span className="text-sm text-gray-500">Договор ТП</span>
+              <input type="text" value={contractSearch} onChange={e => setContractSearch(e.target.value)} placeholder="Номер договора..." className="mt-1 w-full h-11 px-3 border rounded-lg text-base" />
+            </label>
+
+            {!isEskAdmin && !isOksAdmin && (
+              <label className="block">
+                <span className="text-sm text-gray-500">Номер ЛС</span>
+                <input type="text" value={lsSearch} onChange={e => setLsSearch(e.target.value)} placeholder="Лицевой счёт..." className="mt-1 w-full h-11 px-3 border rounded-lg text-base" />
+              </label>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => { setStatus(''); setUnitFilter(''); setUnitTypeFilter('all'); setContractSearch(''); setLsSearch(''); setPage(1) }}
+                className="h-12 px-4 bg-gray-100 rounded-lg text-sm">Сбросить</button>
+              <button onClick={() => setFiltersOpen(false)} className="flex-1 h-12 bg-[#0B4DA2] text-white rounded-lg font-medium">Применить</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {moveModal && <MoveModal units={moveUnits} onClose={() => setMoveModal(false)} onMove={handleMove} count={selected.length} />}
       {deleteModal && (
