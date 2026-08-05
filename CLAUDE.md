@@ -149,6 +149,13 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-08-06** — Мобильная версия, ЭТАП 5б (Analysis/Settings-вкладки).
+  AnalysisPage — УЖЕ мобилопригодна (у сводных таблиц `overflow-x-auto` +
+  `sticky left-0` на 1-й колонке шапки/строк/ИТОГО), правок не потребовалось.
+  SettingsPage: вкладки `flex-wrap`→`flex-nowrap overflow-x-auto lg:flex-wrap`
+  (на телефоне листаются вбок, кнопки `shrink-0`), заголовок `text-xl
+  lg:text-2xl`. Осталось: таблицы в под-вкладках Настроек и списки TZ/Requests/
+  Memo → карточки (или гориз. скролл) — согласовать объём с пользователем.
 - **2026-08-06** — Мобильная версия, ЭТАП 5а (Login/Upload/Approval). LoginPage:
   поля/кнопка `py-2.5`→`py-3 lg:py-2.5` (≥44px на моб.). UploadPage: заголовок
   `text-xl lg:text-2xl`, зона `p-8`→`p-6 lg:p-8`, «История загрузок» — таблица

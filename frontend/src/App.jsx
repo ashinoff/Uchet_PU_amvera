@@ -4737,11 +4737,12 @@ function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">Настройки</h1>
+      <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Настройки</h1>
 
-      <div className="flex gap-1 border-b border-slate-200 flex-wrap">
+      {/* Вкладки: на моб. — горизонтальный скролл, на lg — перенос как было */}
+      <div className="flex gap-1 border-b border-slate-200 flex-nowrap overflow-x-auto lg:flex-wrap lg:overflow-visible">
         {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2.5 border-b-2 whitespace-nowrap text-sm transition-colors ${tab === t.id ? 'border-[#0B4DA2] text-[#0B4DA2] font-medium' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+          <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2.5 border-b-2 whitespace-nowrap text-sm shrink-0 transition-colors ${tab === t.id ? 'border-[#0B4DA2] text-[#0B4DA2] font-medium' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
             <Icon name={t.icon} className="w-4 h-4" /> {t.label}
           </button>
         ))}
