@@ -4812,7 +4812,8 @@ function UsersTab() {
         <button onClick={() => setModal({ user: null })} className="px-4 py-2 bg-blue-600 text-white rounded-lg"><Icon name="plus" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Добавить</button>
       </div>
 
-      <div className="bg-white rounded-xl border overflow-hidden">
+      {/* Десктоп — таблица (как была) */}
+      <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left">Логин</th><th className="px-4 py-3 text-left">ФИО</th><th className="px-4 py-3 text-left">Email</th><th className="px-4 py-3 text-left">Роль</th><th className="px-4 py-3 text-left">Подразделение</th><th className="px-4 py-3 text-left">Статус</th><th className="w-24"></th></tr></thead>
           <tbody>
@@ -4835,6 +4836,32 @@ function UsersTab() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Мобильный — карточки */}
+      <div className="lg:hidden space-y-2">
+        {[...users].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', 'ru')).map(u => (
+          <div key={u.id} className={`bg-white rounded-xl border p-3 ${!u.is_active ? 'opacity-60' : ''}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-medium truncate">{u.full_name || '—'}</div>
+                <div className="text-xs text-slate-500 truncate">@{u.username}</div>
+              </div>
+              <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs ${u.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100'}`}>{u.is_active ? 'Активен' : 'Неактивен'}</span>
+            </div>
+            <div className="mt-1.5 space-y-0.5 text-xs text-slate-500">
+              <div className="truncate">Email: {u.email || '—'}</div>
+              <div className="truncate">Роль: {u.role?.name || '—'}</div>
+              <div className="truncate">Подразделение: {u.unit?.name || '—'}</div>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <button onClick={() => setModal({ user: u })} className="flex-1 h-10 bg-gray-100 rounded-lg text-sm">Изменить</button>
+              {u.id !== currentUser?.id && (
+                <button onClick={() => handleDelete(u)} className="h-10 px-3 bg-red-50 text-red-600 rounded-lg text-sm">Удалить</button>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       {modal && <UserModal user={modal.user} roles={roles} units={units} onClose={() => setModal(null)} onSave={handleSave} />}
@@ -4906,7 +4933,8 @@ function MastersTab() {
         <button onClick={() => setModal({ master: null })} className="px-4 py-2 bg-blue-600 text-white rounded-lg"><Icon name="plus" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Добавить</button>
       </div>
 
-      <div className="bg-white rounded-xl border overflow-hidden">
+      {/* Десктоп — таблица (как была) */}
+      <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left">ФИО</th><th className="px-4 py-3 text-left">Подразделение ЭСК</th><th className="w-24"></th></tr></thead>
           <tbody>
@@ -4922,6 +4950,20 @@ function MastersTab() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Мобильный — карточки */}
+      <div className="lg:hidden space-y-2">
+        {masters.map(m => (
+          <div key={m.id} className="bg-white rounded-xl border p-3">
+            <div className="font-medium">{m.full_name}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{m.unit_name || '—'}</div>
+            <div className="mt-2 flex gap-2">
+              <button onClick={() => setModal({ master: m })} className="flex-1 h-10 bg-gray-100 rounded-lg text-sm">Изменить</button>
+              <button onClick={() => handleDelete(m.id)} className="h-10 px-3 bg-red-50 text-red-600 rounded-lg text-sm">Удалить</button>
+            </div>
+          </div>
+        ))}
       </div>
 
       {modal && (
@@ -4991,7 +5033,8 @@ function TTRResTab() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border overflow-hidden">
+      {/* Десктоп — таблица (как была) */}
+      <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
   <thead className="bg-gray-50">
     <tr>
@@ -5021,6 +5064,27 @@ function TTRResTab() {
     ))}
   </tbody>
 </table>
+      </div>
+
+      {/* Мобильный — карточки */}
+      <div className="lg:hidden space-y-2">
+        {filtered.map(i => (
+          <div key={i.id} className="bg-white rounded-xl border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono font-medium">{i.code}</span>
+              <span className="shrink-0 text-xs text-slate-500">{i.ttr_type === 'OU' ? 'Орг. учета' : i.ttr_type === 'OL' ? 'Обуст. линии' : i.ttr_type === 'TT' ? 'Трансф. тока' : 'Распред. щит'}</span>
+            </div>
+            <div className="text-sm text-slate-700 mt-0.5">{i.name}</div>
+            {isSueAdmin && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button onClick={() => setModal({ item: i })} className="h-10 px-3 bg-gray-100 rounded-lg text-sm">Изменить</button>
+                <button onClick={() => setMaterialsModal(i)} className="h-10 px-3 bg-gray-100 rounded-lg text-sm">Материалы</button>
+                <button onClick={() => setPuTypesModal(i)} className="h-10 px-3 bg-gray-100 rounded-lg text-sm">Типы ПУ</button>
+                <button onClick={() => setDeleteModal(i)} className="h-10 px-3 bg-red-50 text-red-600 rounded-lg text-sm">Удалить</button>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       {modal && (
@@ -5308,7 +5372,8 @@ function TTREskTab() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border overflow-hidden">
+      {/* Десктоп — таблица (как была) */}
+      <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
@@ -5350,6 +5415,33 @@ function TTREskTab() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Мобильный — карточки */}
+      <div className="lg:hidden space-y-2">
+        {filtered.map(i => (
+          <div key={i.id} className="bg-white rounded-xl border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className={`px-2 py-0.5 rounded-full text-xs ${i.ttr_type === 'PU' ? 'bg-blue-100 text-blue-700' : i.ttr_type === 'TRUBOSTOYKA' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{ttrTypeLabels[i.ttr_type] || i.ttr_type}</span>
+              <span className="shrink-0 font-mono text-xs text-slate-500">{i.lsr_number || '—'}</span>
+            </div>
+            <div className="text-sm text-slate-700 mt-1">{i.work_type_name || '—'}</div>
+            <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-slate-500">
+              <div className="col-span-2 truncate">ПУ: {i.pu_pattern || '—'}</div>
+              <div>Фаза: {i.faza || '—'}</div>
+              <div>Форм-фактор: {formFactorLabels[i.form_factor] || '—'}</div>
+              <div>Щит с ВА: {vaTypeLabels[i.va_type] || '—'}</div>
+              <div>Без НДС: {i.price_no_nds?.toLocaleString() || '—'} ₽</div>
+              <div>С НДС: {i.price_with_nds?.toLocaleString() || '—'} ₽</div>
+            </div>
+            {isSueAdmin && (
+              <div className="mt-2 flex gap-2">
+                <button onClick={() => setModal({ item: i })} className="flex-1 h-10 bg-gray-100 rounded-lg text-sm">Изменить</button>
+                <button onClick={() => setDeleteModal(i)} className="h-10 px-3 bg-red-50 text-red-600 rounded-lg text-sm">Удалить</button>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       {modal && (
