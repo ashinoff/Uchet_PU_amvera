@@ -149,6 +149,14 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-08-06** — Фикс «белого экрана после деплоя» (кэш). `backend/main.py`:
+  (1) в middleware `frame_ancestors_header` добавлены заголовки кэша — `/assets/*`
+  → `Cache-Control: public, max-age=31536000, immutable` (имена хэшированы),
+  остальное (index.html/SPA-фолбэк/API) → `Cache-Control: no-cache`. (2) в
+  `spa_fallback`: запрос к `assets/<нет файла>` → честный `404` (raise
+  HTTPException), а не index.html — иначе браузер исполняет HTML как JS → белый
+  экран, когда закэшированный index.html ссылается на исчезнувший бандл. Фронт
+  не менялся, `npm run build` не требуется.
 - **2026-08-06** — Мобильная версия, ЭТАП 5в (Настройки: широкие таблицы →
   карточки). `UsersTab`, `MastersTab`, `TTRResTab`, `TTREskTab`: десктоп-таблица
   обёрнута в `hidden lg:block`, добавлен список карточек `lg:hidden` (тот же

@@ -631,6 +631,13 @@ async def frame_ancestors_header(request, call_next):
     )
     if "x-frame-options" in response.headers:
         del response.headers["X-Frame-Options"]
+    # Кэширование: хэшированные ассеты (/assets/*) — можно вечно (immutable);
+    # всё остальное, включая index.html и SPA-фолбэк — no-cache, чтобы браузер
+    # после редеплоя не держал старый index.html со ссылкой на исчезнувший бандл.
+    if request.url.path.startswith("/assets/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    else:
+        response.headers["Cache-Control"] = "no-cache"
     return response
 
 # Создание/миграция схемы выполняется в ensure_db_schema() при старте (см. конец файла)
@@ -6127,6 +6134,13 @@ if os.path.isdir(FRONTEND_DIST):
 
     @app.get("/{full_path:path}")
     def spa_fallback(full_path: str):
+        # Запрос к ассету, которого нет (старый бандл после редеплоя) -> честный
+        # 404, а НЕ index.html: иначе браузер выполнит HTML как JS -> белый экран.
+        if full_path.startswith("assets/"):
+            candidate = os.path.join(FRONTEND_DIST, full_path)
+            if os.path.isfile(candidate):
+                return FileResponse(candidate)
+            raise HTTPException(status_code=404)
         # Любой не-API путь -> файл из dist, иначе index.html (SPA-роутинг)
         candidate = os.path.join(FRONTEND_DIST, full_path)
         if full_path and os.path.isfile(candidate):
