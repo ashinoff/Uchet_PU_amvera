@@ -6173,7 +6173,9 @@ if os.path.isdir(FRONTEND_DIST):
                     media_type="text/css",
                     headers={"Cache-Control": "no-store"},
                 )
-            raise HTTPException(status_code=404)
+            # Прочие пропавшие ассеты — честный 404, но НЕ кэшируемый (иначе
+            # middleware повесил бы immutable и браузер закэшировал бы 404 на год).
+            return Response(status_code=404, headers={"Cache-Control": "no-store"})
         # Любой не-API путь -> файл из dist, иначе index.html (SPA-роутинг)
         candidate = os.path.join(FRONTEND_DIST, full_path)
         if full_path and os.path.isfile(candidate):
