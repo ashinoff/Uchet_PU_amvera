@@ -6,7 +6,7 @@ import os
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 import keycloak_platform as kc
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Enum as SQLEnum, Float, Date, or_
 from sqlalchemy.ext.declarative import declarative_base
@@ -634,10 +634,13 @@ async def frame_ancestors_header(request, call_next):
     # Кэширование: хэшированные ассеты (/assets/*) — можно вечно (immutable);
     # всё остальное, включая index.html и SPA-фолбэк — no-cache, чтобы браузер
     # после редеплоя не держал старый index.html со ссылкой на исчезнувший бандл.
-    if request.url.path.startswith("/assets/"):
-        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-    else:
-        response.headers["Cache-Control"] = "no-cache"
+    # Если роут уже выставил Cache-Control сам (напр. no-store у само-лечилки
+    # пропавшего бандла) — не перетираем.
+    if "cache-control" not in response.headers:
+        if request.url.path.startswith("/assets/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["Cache-Control"] = "no-cache"
     return response
 
 # Создание/миграция схемы выполняется в ensure_db_schema() при старте (см. конец файла)
@@ -6128,18 +6131,48 @@ FRONTEND_DIST = os.getenv("FRONTEND_DIST", os.path.join(os.path.dirname(__file__
 FRONTEND_DIST = os.path.abspath(FRONTEND_DIST)
 
 if os.path.isdir(FRONTEND_DIST):
-    assets_dir = os.path.join(FRONTEND_DIST, "assets")
-    if os.path.isdir(assets_dir):
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+    # Ассеты раздаём тем же catch-all (БЕЗ StaticFiles-mount на /assets): иначе
+    # запрос к ИСЧЕЗНУВШЕМУ бандлу mount вернул бы 404 сам и до spa_fallback не
+    # дошёл бы — а нам нужно перехватить его и сделать самовосстановление.
+
+    # Тело-«самолечилка» для пропавшего .js: меняет query-параметр __r, чтобы
+    # обойти закэшированный index.html — браузер получит свежий и загрузит новые
+    # бандлы. Проверка __r защищает от бесконечного цикла, если ассеты реально
+    # отсутствуют.
+    SELF_HEAL_JS = (
+        "try {\n"
+        "  var p = new URLSearchParams(location.search);\n"
+        "  if (!p.has('__r')) {\n"
+        "    p.set('__r', Date.now());\n"
+        "    location.replace(location.pathname + '?' + p.toString());\n"
+        "  } else {\n"
+        "    console.error('Не удалось загрузить приложение: обратитесь в поддержку');\n"
+        "  }\n"
+        "} catch (e) {}\n"
+    )
 
     @app.get("/{full_path:path}")
     def spa_fallback(full_path: str):
-        # Запрос к ассету, которого нет (старый бандл после редеплоя) -> честный
-        # 404, а НЕ index.html: иначе браузер выполнит HTML как JS -> белый экран.
         if full_path.startswith("assets/"):
             candidate = os.path.join(FRONTEND_DIST, full_path)
             if os.path.isfile(candidate):
                 return FileResponse(candidate)
+            # Файла нет — старый index.html из кэша ссылается на исчезнувший бандл.
+            # Вместо белого экрана отдаём валидный ответ, который сам перезагрузит
+            # страницу со свежим index.html.
+            if full_path.endswith(".js"):
+                return Response(
+                    content=SELF_HEAL_JS,
+                    media_type="application/javascript",
+                    headers={"Cache-Control": "no-store"},
+                )
+            if full_path.endswith(".css"):
+                # Перезагрузку сделает js; css просто не должен падать 404.
+                return Response(
+                    content="",
+                    media_type="text/css",
+                    headers={"Cache-Control": "no-store"},
+                )
             raise HTTPException(status_code=404)
         # Любой не-API путь -> файл из dist, иначе index.html (SPA-роутинг)
         candidate = os.path.join(FRONTEND_DIST, full_path)

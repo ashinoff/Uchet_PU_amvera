@@ -252,6 +252,17 @@ function RossetiLoader({ size = 'normal' }) {
 
 // ==================== ГЛАВНЫЙ КОМПОНЕНТ ====================
 export default function App() {
+  // Убираем служебный параметр __r (от само-восстановления кэша на бэке) из
+  // адресной строки — чтобы не мозолил глаза и не попадал в закладки.
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href)
+      if (url.searchParams.has('__r')) {
+        url.searchParams.delete('__r')
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+      }
+    } catch (e) { /* noop */ }
+  }, [])
   return <AuthProvider><FlickerStyle /><Main /></AuthProvider>
 }
 

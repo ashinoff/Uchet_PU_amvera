@@ -149,6 +149,21 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-08-07** — Само-восстановление кэша (белый экран после деплоя, доработка).
+  Корень проблемы: `/assets` раздавался через `app.mount(StaticFiles)`, и на
+  ИСЧЕЗНУВШИЙ бандл mount сам отдавал 404 — до `spa_fallback` не доходило (мой
+  прежний 404-код был недостижим). `backend/main.py`: (1) убран
+  `app.mount("/assets", StaticFiles…)` — ассеты раздаёт тот же catch-all
+  `spa_fallback` (реальный файл → `FileResponse`). (2) Пропавший `/assets/*.js`
+  → HTTP 200 `application/javascript`, `Cache-Control:no-store`, тело меняет
+  query `__r` через `location.replace` → браузер обходит закэшированный
+  index.html и грузит свежий; `__r` защищает от бесконечного цикла. Пропавший
+  `.css` → 200 `text/css` `no-store` пустой. Прочие пропавшие `/assets/*` →
+  честный 404. (3) Middleware кэша: добавлен гард `if "cache-control" not in
+  headers` — чтобы `no-store` само-лечилки не перетирался; immutable/no-cache
+  для всего прочего — как было. Фронт (`App.jsx`): в `App()` `useEffect` один раз
+  чистит `__r` из URL через `history.replaceState`. `python ast` + `npm run
+  build` — ОК.
 - **2026-08-06** — Фикс «белого экрана после деплоя» (кэш). `backend/main.py`:
   (1) в middleware `frame_ancestors_header` добавлены заголовки кэша — `/assets/*`
   → `Cache-Control: public, max-age=31536000, immutable` (имена хэшированы),
