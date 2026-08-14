@@ -2004,6 +2004,34 @@ const updateMaterialQty = (materialId, qty) => {
                   {errors.ttr_or_id && <p className="text-red-500 text-xs mt-1"><Icon name="alert" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> {errors.ttr_or_id}</p>}
                 </div>
               </div>
+              {/* Описание выбранных ТТР из реестра ТТР (полный текст name) */}
+              {(() => {
+                const selected = [
+                  { label: 'Орг. учёта', id: item.ttr_ou_id },
+                  { label: 'Обуст. линии', id: item.ttr_ol_id },
+                  { label: 'Распред. щита', id: item.ttr_or_id },
+                  { label: 'Для ТТ', id: item.ttr_tt_id },
+                ]
+                  .filter(s => s.id)
+                  .map(s => ({ ...s, ttr: ttrRes.find(t => t.id === s.id) }))
+                  .filter(s => s.ttr)
+                if (!selected.length) return null
+                return (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2 space-y-2">
+                    <div className="text-sm font-medium text-blue-800">
+                      <Icon name="fileText" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Описание выбранных ТТР
+                    </div>
+                    {selected.map(s => (
+                      <div key={s.id} className="text-sm">
+                        <div className="font-medium text-blue-900">
+                          {s.ttr.code} <span className="font-normal text-blue-600">· {s.label}</span>
+                        </div>
+                        {s.ttr.name && <div className="text-gray-700 whitespace-pre-line">{s.ttr.name}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
               {/* ТТР для ТТ (У-27) — автоматически только при выборе У-25 */}
               {item.status === 'ZAMENA' && ttrRes.some(t => 
                 (t.id === item?.ttr_ou_id || t.id === item?.ttr_ol_id || t.id === item?.ttr_or_id) && t.code && t.code.trim() === 'У-25'
