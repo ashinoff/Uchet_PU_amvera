@@ -1410,8 +1410,8 @@ def export_pu_items(
     """Выгрузка реестра ПУ в Excel"""
     try:
         visible = get_visible_units(user, db)
-        q = db.query(PUItem).options(joinedload(PUItem.current_unit), joinedload(PUItem.ttr_esk))
-        
+        q = db.query(PUItem).options(joinedload(PUItem.current_unit), joinedload(PUItem.ttr_esk), joinedload(PUItem.contractor))
+
         # Те же фильтры что и в get_items
         if is_lab_user(user):
             regs = db.query(PURegister.id).filter(PURegister.uploaded_by == user.id)
@@ -1505,6 +1505,7 @@ def export_pu_items(
             ("№ Заявки", 12),
             ("Согласование", 15),
             ("Вид работ (ЛСР)", 30),
+            ("СМР выполнил", 22),
             ("Дата СМР", 12),
             ("Дата загрузки", 12),
         ]
@@ -1555,6 +1556,11 @@ def export_pu_items(
                 item.request_number or "",
                 approval_labels.get(item.approval_status.value if item.approval_status else 'NONE', '—'),
                 item.work_type_name or (item.ttr_esk.work_type_name if item.ttr_esk else "") or "",
+                (
+                    ("Подрядчик" + (f": {item.contractor.name}" if item.contractor else ""))
+                    if item.smr_method == "Подрядчик"
+                    else (item.smr_executor or "")
+                ),
                 item.smr_date.strftime("%d.%m.%Y") if item.smr_date else "",
                 item.created_at.strftime("%d.%m.%Y") if item.created_at else "",
             ]
@@ -2003,6 +2009,10 @@ async def upload_register(file: UploadFile = File(...), db: Session = Depends(ge
     existing_serials = set(s for (s,) in db.query(PUItem.serial_number).all())
     for _, row in df.iterrows():
         serial = str(row.get(serial_col, '')).strip()
+        # Excel часто отдаёт числовой заводской номер как float → "23476250274.0".
+        # Режем всё начиная с первой точки (и саму точку), сколько бы ни было после.
+        if '.' in serial:
+            serial = serial.split('.', 1)[0]
         if not serial or serial == 'nan':
             continue
     
