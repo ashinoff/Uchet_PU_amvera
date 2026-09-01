@@ -1967,9 +1967,10 @@ const updateMaterialQty = (materialId, qty) => {
           )}
 
           {/* ТТР для РЭС / ОКС (для ОКС с подрядчиком — скрыто) */}
-          {isResLike && item.status !== 'SKLAD' && !isOksContractor && (
+          {isResLike && item.status !== 'SKLAD' && (
             <>
               <hr />
+              {!isOksContractor && (<>
               <h3 className="font-medium">ТТР (для РЭС)</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
@@ -2047,6 +2048,7 @@ const updateMaterialQty = (materialId, qty) => {
                   </div>
                 )
               })()}
+              </>)}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">СМР выполнил</label>
