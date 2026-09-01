@@ -1529,9 +1529,13 @@ def export_pu_items(
             'REJECTED': 'Отклонено', 'NONE': '—'
         }
         
+        # Общий объект выравнивания для всех ячеек данных (не создаём по одному
+        # на каждую из ~140к ячеек — иначе сборка книги для 6982 строк упирается
+        # в таймаут). thin_border тоже переиспользуем (он уже один общий).
+        data_alignment = Alignment(vertical="center", wrap_text=True)
+        naznachenie_labels = {'IZHC': 'ИЖЦ', 'TECHPRIS': 'Техприс', 'ZAMENA': 'Замена'}
         for idx, item in enumerate(items, 1):
             row = idx + 1
-            naznachenie_labels = {'IZHC': 'ИЖЦ', 'TECHPRIS': 'Техприс', 'ZAMENA': 'Замена'}
             data = [
                 idx,
                 item.serial_number or "",
@@ -1558,10 +1562,10 @@ def export_pu_items(
             for col, value in enumerate(data, 1):
                 cell = ws.cell(row=row, column=col, value=value)
                 cell.border = thin_border
-                cell.alignment = Alignment(vertical="center", wrap_text=True)
-            
-            ws.row_dimensions[row].height = 25
-        
+                cell.alignment = data_alignment
+            # Высоту строк не задаём поштучно (6982 объектов RowDimension тормозят
+            # сборку и раздувают файл) — Excel сам растянет строки по wrap_text.
+
         # Сохраняем
         output = io.BytesIO()
         wb.save(output)
