@@ -6494,6 +6494,7 @@ function MoveScanPage() {
   const [moving, setMoving] = useState(false)
   const [flash, setFlash] = useState(null)       // {type:'ok'|'err', text} — статус скана
   const [moveResult, setMoveResult] = useState(null)
+  const [countdown, setCountdown] = useState(0)  // полуавтомат: сек до авто-добавления
   const searchRef = useRef(null)
   const searchReqRef = useRef(0)
 
@@ -6519,6 +6520,33 @@ function MoveScanPage() {
     }, 250)
     return () => clearTimeout(t)
   }, [search, fromUnit, hasAccess])
+
+  // Полуавтомат: если текущее значение поля ТОЧНО совпадает с серийником из
+  // реестра (полное совпадение всех цифр) — запускаем отсчёт 5 сек и добавляем
+  // ПУ сам. Любое изменение поля перезапускает эффект (отсчёт сбрасывается),
+  // Enter добавляет мгновенно (тоже очищает поле → отсчёт снимается).
+  useEffect(() => {
+    if (!hasAccess) { setCountdown(0); return }
+    const s = search.trim()
+    const exact = s ? results.find(r => r.serial_number === s) : null
+    if (!exact || picked.some(p => p.id === exact.id)) { setCountdown(0); return }
+    let n = 5
+    setCountdown(n)
+    const iv = setInterval(() => {
+      n -= 1
+      if (n <= 0) {
+        clearInterval(iv)
+        setCountdown(0)
+        setPicked(prev => prev.some(p => p.id === exact.id) ? prev : [exact, ...prev])
+        setFlash({ type: 'ok', text: `Добавлен ${exact.serial_number} (${exact.current_unit_name || '—'})` })
+        setSearch('')
+        searchRef.current?.focus()
+      } else {
+        setCountdown(n)
+      }
+    }, 1000)
+    return () => clearInterval(iv)
+  }, [search, results, picked, hasAccess])
 
   if (!hasAccess) return <div className="text-center py-12 text-gray-500">Нет доступа</div>
 
@@ -6625,10 +6653,16 @@ function MoveScanPage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               onKeyDown={onSearchKeyDown}
-              placeholder="Скан + Enter → добавить в список"
+              placeholder="Скан → авто-добавление через 5 с (или Enter — сразу)"
               className="w-full px-3 py-2 border rounded-lg text-base"
             />
-            {flash && (
+            {countdown > 0 ? (
+              <div className="mt-1 flex items-center gap-2 text-sm text-blue-700">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-semibold">{countdown}</span>
+                Авто-добавление через {countdown} с…
+                <button onClick={() => { setSearch(''); searchRef.current?.focus() }} className="text-rose-600 hover:text-rose-700 underline">отмена</button>
+              </div>
+            ) : flash && (
               <p className={`mt-1 text-sm ${flash.type === 'ok' ? 'text-emerald-600' : 'text-rose-600'}`}>
                 <Icon name={flash.type === 'ok' ? 'check' : 'alert'} className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> {flash.text}
               </p>

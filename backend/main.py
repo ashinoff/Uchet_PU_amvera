@@ -6215,14 +6215,14 @@ def ensure_db_schema():
                             print(f"  ⚠️ Ошибка {table_name}.{column.name}: {e}")
         
         # 2.5 Центральная ОКС (единственная запись unit_type=OKS, «голова») —
-        # называем её «ОКС - склад», чтобы в списках перемещения читалась как
+        # называем её «ОКС - Склад», чтобы в списках перемещения читалась как
         # общий склад ОКС. Идемпотентно: правим только если имя иное.
         try:
             central_oks = db.query(Unit).filter(Unit.unit_type == UnitType.OKS).all()
             for u in central_oks:
-                if u.name != "ОКС - склад":
-                    print(f"  ✏️ Центральная ОКС: '{u.name}' → 'ОКС - склад'")
-                    u.name = "ОКС - склад"
+                if u.name != "ОКС - Склад":
+                    print(f"  ✏️ Центральная ОКС: '{u.name}' → 'ОКС - Склад'")
+                    u.name = "ОКС - Склад"
             db.commit()
         except Exception as e:
             db.rollback()
