@@ -283,6 +283,7 @@ const NAV_TITLES = {
   memo: 'Служебки',
   settings: 'Настройки',
   'move-bulk': 'Перемещение',
+  'move-scan': 'Перемещение сканером',
 }
 
 function Main() {
@@ -340,6 +341,7 @@ function Main() {
           {page === 'memo' && <MemoPage />}
           {page === 'settings' && <SettingsPage />}
           {page === 'move-bulk' && <MoveBulkPage />}
+          {page === 'move-scan' && <MoveScanPage />}
           {page === 'analysis' && <AnalysisPage />}
         </div>
       </div>
@@ -363,7 +365,7 @@ function Main() {
 
 // ==================== САЙДБАР ====================
 function Sidebar({ page, setPage, pendingCount = 0, open = false, onClose }) {
-  const { user, canUpload, canManageUsers, canApprove, canCreateTZ, isEskAdmin, isSueAdmin, isResUser, isEskUser, isOksAdmin } = useAuth()
+  const { user, canUpload, canManageUsers, canApprove, canCreateTZ, isEskAdmin, isSueAdmin, isResUser, isEskUser, isOksAdmin, isLabUser } = useAuth()
 
   // Выбор пункта: перейти и закрыть мобильное меню (на десктопе onClose — но-оп).
   const pick = (id) => { setPage(id); onClose?.() }
@@ -376,6 +378,7 @@ function Sidebar({ page, setPage, pendingCount = 0, open = false, onClose }) {
     { id: 'pu-done', icon: 'check', label: 'Завершённые СМР', show: true },
     { id: 'pu-actioned', icon: 'tag', label: 'Актированные ПУ', show: true },
     { id: 'analysis', icon: 'chart', label: 'Анализ остатков', show: true },
+    { id: 'move-scan', icon: 'package', label: 'Перемещение сканером', show: isSueAdmin || isLabUser || isEskAdmin || isOksAdmin },
     { id: 'approval', icon: 'checkCircle', label: 'Согласование', show: canApprove, badge: pendingCount },
     { id: 'tz', icon: 'clipboard', label: 'Техн. задания', show: isSueAdmin || isOksAdmin },
     { id: 'requests', icon: 'fileEdit', label: 'Заявки ЭСК', show: isSueAdmin || isEskAdmin || isEskUser || isOksAdmin },
@@ -6471,6 +6474,236 @@ function ClearDBModal({ onClose, onClear }) {
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg">Отмена</button>
           <button onClick={() => code && onClear(code)} className="px-4 py-2 bg-red-600 text-white rounded-lg">Очистить</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MoveScanPage() {
+  const { isSueAdmin, isLabUser, isEskAdmin, isOksAdmin } = useAuth()
+  const hasAccess = isSueAdmin || isLabUser || isEskAdmin || isOksAdmin
+
+  const [units, setUnits] = useState([])
+  const [fromUnit, setFromUnit] = useState('')   // фильтр «откуда» (не обязателен)
+  const [toUnit, setToUnit] = useState('')       // «куда» — целевое подразделение
+  const [search, setSearch] = useState('')
+  const [results, setResults] = useState([])
+  const [picked, setPicked] = useState([])       // отобранные ПУ (объекты)
+  const [loading, setLoading] = useState(false)
+  const [moving, setMoving] = useState(false)
+  const [flash, setFlash] = useState(null)       // {type:'ok'|'err', text} — статус скана
+  const [moveResult, setMoveResult] = useState(null)
+  const searchRef = useRef(null)
+  const searchReqRef = useRef(0)
+
+  useEffect(() => {
+    if (hasAccess) api.get('/pu/move-units').then(r => setUnits(r.data)).catch(() => {})
+  }, [hasAccess])
+
+  // Живой список слева: по вводу текста (подстрока) и/или выбранному «откуда».
+  useEffect(() => {
+    if (!hasAccess) return
+    const s = search.trim()
+    if (!s && !fromUnit) { setResults([]); return }
+    const rid = ++searchReqRef.current
+    setLoading(true)
+    const t = setTimeout(() => {
+      const params = new URLSearchParams()
+      if (s) params.append('search', s)
+      if (fromUnit) params.append('unit_id', fromUnit)
+      api.get(`/pu/move-search?${params.toString()}`)
+        .then(r => { if (rid === searchReqRef.current) setResults(r.data) })
+        .catch(() => { if (rid === searchReqRef.current) setResults([]) })
+        .finally(() => { if (rid === searchReqRef.current) setLoading(false) })
+    }, 250)
+    return () => clearTimeout(t)
+  }, [search, fromUnit, hasAccess])
+
+  if (!hasAccess) return <div className="text-center py-12 text-gray-500">Нет доступа</div>
+
+  const typeLabel = { RES: 'РЭС', ESK: 'ЭСК', ESK_UNIT: 'ЭСК', OKS: 'ОКС', OKS_UNIT: 'ОКС' }
+
+  const addItem = (item) => {
+    if (!item) return false
+    if (picked.some(p => p.id === item.id)) {
+      setFlash({ type: 'err', text: `${item.serial_number} — уже в списке` })
+      return false
+    }
+    setPicked(prev => [item, ...prev])
+    setFlash({ type: 'ok', text: `Добавлен ${item.serial_number} (${item.current_unit_name || '—'})` })
+    return true
+  }
+
+  const removeItem = (id) => setPicked(prev => prev.filter(p => p.id !== id))
+  const clearPicked = () => { setPicked([]); setFlash(null) }
+
+  // Сканер: ввод номера + Enter → точный поиск и добавление, поле очищается.
+  const onSearchKeyDown = async (e) => {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    const s = search.trim()
+    if (!s) return
+    try {
+      const params = new URLSearchParams({ serial: s, exact: '1' })
+      if (fromUnit) params.append('unit_id', fromUnit)
+      const r = await api.get(`/pu/move-search?${params.toString()}`)
+      if (r.data && r.data.length) {
+        addItem(r.data[0])
+      } else {
+        setFlash({ type: 'err', text: `Не найден: ${s}` })
+      }
+    } catch {
+      setFlash({ type: 'err', text: `Ошибка поиска: ${s}` })
+    }
+    setSearch('')
+    searchRef.current?.focus()
+  }
+
+  const doMove = async () => {
+    if (!toUnit) { alert('Выберите подразделение «Куда»'); return }
+    if (!picked.length) { alert('Список пуст — добавьте ПУ'); return }
+    setMoving(true)
+    try {
+      const r = await api.post('/pu/move-picked', {
+        pu_item_ids: picked.map(p => p.id),
+        to_unit_id: parseInt(toUnit),
+      })
+      setMoveResult(r.data)
+      setPicked([])
+      setResults([])
+      setSearch('')
+      setFlash(null)
+      searchRef.current?.focus()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Ошибка перемещения')
+    }
+    setMoving(false)
+  }
+
+  const toUnitName = units.find(u => String(u.id) === String(toUnit))?.name
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl lg:text-2xl font-bold"><Icon name="package" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Перемещение сканером</h1>
+      </div>
+
+      {moveResult && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
+          <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-100 text-emerald-600 shrink-0"><Icon name="checkCircle" className="w-6 h-6" /></span>
+          <div className="text-sm">
+            <div className="font-semibold text-emerald-700">Перемещено: {moveResult.moved} ПУ → «{moveResult.to_unit}»</div>
+            {moveResult.skipped?.length > 0 && (
+              <div className="mt-1 text-amber-700">
+                Пропущено ({moveResult.skipped.length}): {moveResult.skipped.slice(0, 10).join('; ')}{moveResult.skipped.length > 10 ? '…' : ''}
+              </div>
+            )}
+          </div>
+          <button onClick={() => setMoveResult(null)} className="ml-auto text-emerald-700 hover:text-emerald-900"><Icon name="x" className="w-5 h-5" /></button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* ЛЕВО: реестр + поиск/сканер */}
+        <div className="bg-white rounded-xl border p-4 lg:p-5 space-y-3">
+          <h3 className="font-semibold text-slate-700"><Icon name="search" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Реестр ПУ</h3>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Откуда (подразделение)</label>
+            <select value={fromUnit} onChange={e => setFromUnit(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
+              <option value="">— все доступные —</option>
+              {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Сканируйте или введите № ПУ</label>
+            <input
+              ref={searchRef}
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={onSearchKeyDown}
+              placeholder="Скан + Enter → добавить в список"
+              className="w-full px-3 py-2 border rounded-lg text-base"
+            />
+            {flash && (
+              <p className={`mt-1 text-sm ${flash.type === 'ok' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                <Icon name={flash.type === 'ok' ? 'check' : 'alert'} className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> {flash.text}
+              </p>
+            )}
+          </div>
+
+          <div className="border rounded-lg divide-y max-h-[52vh] overflow-y-auto">
+            {loading && <div className="p-3 text-sm text-gray-400">Поиск…</div>}
+            {!loading && results.length === 0 && (
+              <div className="p-3 text-sm text-gray-400">Введите № ПУ или выберите подразделение «Откуда».</div>
+            )}
+            {!loading && results.map(it => {
+              const inList = picked.some(p => p.id === it.id)
+              return (
+                <div key={it.id} className="flex items-center gap-3 p-2.5 hover:bg-slate-50">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-mono font-medium text-slate-800 truncate">{it.serial_number}</div>
+                    <div className="text-xs text-gray-500 truncate">{it.pu_type || '—'}</div>
+                    <div className="text-xs text-gray-400 truncate">{it.current_unit_name || '—'} · {it.status || ''}</div>
+                  </div>
+                  <button
+                    onClick={() => addItem(it)}
+                    disabled={inList}
+                    aria-label="Добавить"
+                    className={`h-9 w-9 shrink-0 grid place-items-center rounded-lg text-white ${inList ? 'bg-gray-300' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                  >
+                    <Icon name={inList ? 'check' : 'plus'} className="w-5 h-5" />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* ПРАВО: к перемещению */}
+        <div className="bg-white rounded-xl border p-4 lg:p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-slate-700"><Icon name="arrowRight" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> К перемещению <span className="text-blue-600">({picked.length})</span></h3>
+            {picked.length > 0 && (
+              <button onClick={clearPicked} className="text-sm text-rose-600 hover:text-rose-700"><Icon name="trash" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Очистить</button>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Куда (подразделение)</label>
+            <select value={toUnit} onChange={e => setToUnit(e.target.value)} className="w-full px-3 py-2 border rounded-lg">
+              <option value="">— выберите —</option>
+              {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </div>
+
+          <div className="border rounded-lg divide-y max-h-[52vh] overflow-y-auto">
+            {picked.length === 0 && (
+              <div className="p-3 text-sm text-gray-400">Список пуст. Сканируйте ПУ или жмите «+» слева.</div>
+            )}
+            {picked.map(it => (
+              <div key={it.id} className="flex items-center gap-3 p-2.5">
+                <div className="min-w-0 flex-1">
+                  <div className="font-mono font-medium text-slate-800 truncate">{it.serial_number}</div>
+                  <div className="text-xs text-gray-400 truncate">{it.current_unit_name || '—'}{it.pu_type ? ` · ${it.pu_type}` : ''}</div>
+                </div>
+                <button onClick={() => removeItem(it.id)} aria-label="Убрать" className="h-9 w-9 shrink-0 grid place-items-center rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-200">
+                  <Icon name="x" className="w-5 h-5" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={doMove}
+            disabled={moving || !picked.length || !toUnit}
+            className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
+          >
+            {moving ? 'Перемещение…' : `Переместить ${picked.length || ''} ПУ${toUnitName ? ` → «${toUnitName}»` : ''}`}
+          </button>
         </div>
       </div>
     </div>

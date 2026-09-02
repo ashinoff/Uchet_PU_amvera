@@ -538,6 +538,24 @@ def can_move_pu(user: User, pu_item, target_unit, db: Session) -> tuple[bool, st
     
     return False, "Нет прав на перемещение"
 
+# Операционные типы подразделений, между которыми ходят ПУ (без SUE/LAB).
+MOVE_UNIT_TYPES = [UnitType.RES, UnitType.ESK, UnitType.ESK_UNIT, UnitType.OKS, UnitType.OKS_UNIT]
+
+def get_move_units(user: User, db: Session):
+    """Подразделения, доступные пользователю для интерактивного перемещения
+    (списки «откуда»/«куда» и одновременно зона прав).
+    СУЭ и лаборатория — все операционные; ЭСК-админ — ЭСК; ОКС-админ — ОКС;
+    остальные (RES/ESK/OKS-пользователь) — только своё подразделение."""
+    if is_sue_admin(user) or is_lab_user(user):
+        return db.query(Unit).filter(Unit.is_active == True, Unit.unit_type.in_(MOVE_UNIT_TYPES)).all()
+    if is_esk_admin(user):
+        return db.query(Unit).filter(Unit.is_active == True, Unit.unit_type.in_([UnitType.ESK, UnitType.ESK_UNIT])).all()
+    if is_oks_admin(user):
+        return db.query(Unit).filter(Unit.is_active == True, Unit.unit_type.in_([UnitType.OKS, UnitType.OKS_UNIT])).all()
+    if user.unit_id:
+        return db.query(Unit).filter(Unit.id == user.unit_id).all()
+    return []
+
 # ==================== PYDANTIC СХЕМЫ ====================
 class LoginReq(BaseModel):
     username: str
@@ -568,6 +586,10 @@ class MoveReq(BaseModel):
     pu_item_ids: List[int]
     to_unit_id: int
     comment: Optional[str] = None
+
+class MovePickedReq(BaseModel):
+    pu_item_ids: List[int]
+    to_unit_id: int
 
 class DeleteReq(BaseModel):
     pu_item_ids: List[int]
@@ -2338,6 +2360,93 @@ async def move_bulk(
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Ошибка: {str(e)}")
+
+@app.get("/api/pu/move-units")
+def move_units_list(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Подразделения для интерактивного перемещения (откуда/куда) с учётом зоны
+    видимости пользователя. Используется страницей «Перемещение сканером»."""
+    units = get_move_units(user, db)
+    order = {UnitType.RES: 0, UnitType.ESK: 1, UnitType.ESK_UNIT: 1, UnitType.OKS: 2, UnitType.OKS_UNIT: 2}
+    units = sorted(units, key=lambda u: (order.get(u.unit_type, 9), u.name or ""))
+    return [{"id": u.id, "name": u.name, "unit_type": u.unit_type.value} for u in units]
+
+@app.get("/api/pu/move-search")
+def move_search(
+    serial: Optional[str] = None,
+    unit_id: Optional[int] = None,
+    exact: bool = False,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Поиск ПУ для интерактивного перемещения. Отдаёт только те ПУ, что лежат в
+    видимых пользователю подразделениях (get_move_units). exact=1 — точное
+    совпадение серийного номера (для сканера: скан + Enter → добавить)."""
+    visible_ids = [u.id for u in get_move_units(user, db)]
+    if not visible_ids:
+        return []
+    q = db.query(PUItem).options(joinedload(PUItem.current_unit)).filter(PUItem.current_unit_id.in_(visible_ids))
+    if unit_id:
+        if unit_id not in visible_ids:
+            return []
+        q = q.filter(PUItem.current_unit_id == unit_id)
+    serial = (serial or "").strip()
+    if serial:
+        if exact:
+            q = q.filter(PUItem.serial_number == serial)
+        else:
+            q = q.filter(PUItem.serial_number.ilike(f"%{serial}%"))
+    elif not unit_id:
+        # Без поискового запроса и без фильтра подразделения ничего не отдаём —
+        # чтобы не тянуть тысячи ПУ.
+        return []
+    status_labels = {"SKLAD": "Склад", "TECHPRIS": "Техприс", "ZAMENA": "Замена", "IZHC": "ИЖЦ", "INSTALLED": "Установлен"}
+    items = q.order_by(PUItem.serial_number).limit(max(1, min(limit, 500))).all()
+    return [{
+        "id": i.id,
+        "serial_number": i.serial_number,
+        "pu_type": i.pu_type,
+        "current_unit_id": i.current_unit_id,
+        "current_unit_name": i.current_unit.name if i.current_unit else None,
+        "status": status_labels.get(i.status.value, i.status.value) if i.status else None,
+    } for i in items]
+
+@app.post("/api/pu/move-picked")
+def move_picked(req: MovePickedReq, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Интерактивное перемещение отобранных ПУ в выбранное подразделение.
+    Права = зона видимости (get_move_units): и исходное подразделение ПУ, и
+    целевое должны быть видимы пользователю. Внутри зоны перемещение свободное
+    (РЭС↔ЭСК↔ОКС) — в отличие от строгого can_move_pu на карточке."""
+    visible_ids = set(u.id for u in get_move_units(user, db))
+    if not visible_ids:
+        raise HTTPException(403, "Нет прав на перемещение")
+    if req.to_unit_id not in visible_ids:
+        raise HTTPException(403, "Целевое подразделение вне вашей зоны")
+    target = db.query(Unit).filter(Unit.id == req.to_unit_id).first()
+    if not target:
+        raise HTTPException(404, "Подразделение не найдено")
+    if not req.pu_item_ids:
+        raise HTTPException(400, "Список ПУ пуст")
+
+    items = db.query(PUItem).filter(PUItem.id.in_(req.pu_item_ids)).all()
+    found_ids = set(i.id for i in items)
+    moved = 0
+    skipped = []
+    for item in items:
+        # Нельзя двигать ПУ из подразделения, которое пользователь не видит.
+        if item.current_unit_id not in visible_ids:
+            skipped.append(f"{item.serial_number}: вне вашей зоны")
+            continue
+        if item.current_unit_id == target.id:
+            skipped.append(f"{item.serial_number}: уже в «{target.name}»")
+            continue
+        db.add(PUMovement(pu_item_id=item.id, from_unit_id=item.current_unit_id, to_unit_id=target.id, moved_by=user.id, comment="Перемещение сканером"))
+        item.current_unit_id = target.id
+        moved += 1
+    for missing in [pid for pid in req.pu_item_ids if pid not in found_ids]:
+        skipped.append(f"ID {missing}: не найден")
+    db.commit()
+    return {"moved": moved, "skipped": skipped, "to_unit": target.name}
 
 @app.post("/api/pu/update-types-bulk")
 async def update_types_bulk(
@@ -6105,6 +6214,20 @@ def ensure_db_schema():
                         if 'already exists' not in str(e).lower() and 'duplicate' not in str(e).lower():
                             print(f"  ⚠️ Ошибка {table_name}.{column.name}: {e}")
         
+        # 2.5 Центральная ОКС (единственная запись unit_type=OKS, «голова») —
+        # называем её «ОКС - склад», чтобы в списках перемещения читалась как
+        # общий склад ОКС. Идемпотентно: правим только если имя иное.
+        try:
+            central_oks = db.query(Unit).filter(Unit.unit_type == UnitType.OKS).all()
+            for u in central_oks:
+                if u.name != "ОКС - склад":
+                    print(f"  ✏️ Центральная ОКС: '{u.name}' → 'ОКС - склад'")
+                    u.name = "ОКС - склад"
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"  ⚠️ Переименование центральной ОКС: {e}")
+
         # 3. Индексы на часто фильтруемых колонках (ускоряют списки/дашборд/аналитику/согласование)
         index_defs = [
             ("ix_pu_items_current_unit_id", "pu_items", "current_unit_id"),
