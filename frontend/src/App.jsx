@@ -816,6 +816,31 @@ function PUListPage({ filter = 'all', preset = null }) {
     return false
   })
 
+  // Список подразделений в выпадашке ЖЁСТКО согласован с переключателем типа:
+  // при типе ОКС видны только ОКС, при РЭС — только РЭС и т.д. (иначе можно было
+  // выбрать РЭС при типе ОКС → противоречивые фильтры и «белиберда» в ответе).
+  const unitOptions = visibleUnits.filter(u => {
+    if (unitTypeFilter === 'res') return u.unit_type === 'RES'
+    if (unitTypeFilter === 'esk') return u.unit_type === 'ESK' || u.unit_type === 'ESK_UNIT'
+    if (unitTypeFilter === 'oks') return u.unit_type === 'OKS' || u.unit_type === 'OKS_UNIT'
+    return true
+  })
+  // Смена типа подразделения сбрасывает конкретный выбор, если он больше не
+  // подходит под новый тип (чтобы в state не завис id из другого отделения).
+  const setTypeFilter = (t) => {
+    setUnitTypeFilter(t)
+    setUnitFilter(prev => {
+      if (!prev) return prev
+      const u = visibleUnits.find(x => String(x.id) === String(prev))
+      const ok = !u ? false :
+        t === 'res' ? u.unit_type === 'RES' :
+        t === 'esk' ? (u.unit_type === 'ESK' || u.unit_type === 'ESK_UNIT') :
+        t === 'oks' ? (u.unit_type === 'OKS' || u.unit_type === 'OKS_UNIT') : true
+      return ok ? prev : ''
+    })
+    setPage(1)
+  }
+
   // Для ЭСК и ОКС только Техприс и Склад
   const statusOptions = (isEskAdmin || isOksAdmin)
     ? [{ value: 'SKLAD', label: 'Склад' }, { value: 'TECHPRIS', label: 'Техприс' }]
@@ -951,15 +976,15 @@ function PUListPage({ filter = 'all', preset = null }) {
           {(isSueAdmin || isEskAdmin || isOksAdmin) && (
             <select value={unitFilter} onChange={e => { setUnitFilter(e.target.value); setPage(1) }} className="px-3 py-2 border rounded-lg">
               <option value="">Все подразделения</option>
-              {visibleUnits.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {unitOptions.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           )}
           {isSueAdmin && (
             <div className="flex items-center gap-1 px-2 py-1 border rounded-lg">
-              <button onClick={() => { setUnitTypeFilter('all'); setPage(1) }} className={`px-3 py-1 rounded ${unitTypeFilter === 'all' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}>Все</button>
-              <button onClick={() => { setUnitTypeFilter('res'); setPage(1) }} className={`px-3 py-1 rounded ${unitTypeFilter === 'res' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}>РЭС</button>
-              <button onClick={() => { setUnitTypeFilter('esk'); setPage(1) }} className={`px-3 py-1 rounded ${unitTypeFilter === 'esk' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}>ЭСК</button>
-              <button onClick={() => { setUnitTypeFilter('oks'); setPage(1) }} className={`px-3 py-1 rounded ${unitTypeFilter === 'oks' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}>ОКС</button>
+              <button onClick={() => setTypeFilter('all')} className={`px-3 py-1 rounded ${unitTypeFilter === 'all' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}>Все</button>
+              <button onClick={() => setTypeFilter('res')} className={`px-3 py-1 rounded ${unitTypeFilter === 'res' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}>РЭС</button>
+              <button onClick={() => setTypeFilter('esk')} className={`px-3 py-1 rounded ${unitTypeFilter === 'esk' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}>ЭСК</button>
+              <button onClick={() => setTypeFilter('oks')} className={`px-3 py-1 rounded ${unitTypeFilter === 'oks' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}>ОКС</button>
             </div>
           )}
         </div>
@@ -1131,7 +1156,7 @@ function PUListPage({ filter = 'all', preset = null }) {
                 <span className="text-sm text-gray-500">Подразделение</span>
                 <select value={unitFilter} onChange={e => { setUnitFilter(e.target.value); setPage(1) }} className="mt-1 w-full h-11 px-3 border rounded-lg text-base">
                   <option value="">Все подразделения</option>
-                  {visibleUnits.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  {unitOptions.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
               </label>
             )}
@@ -1139,7 +1164,7 @@ function PUListPage({ filter = 'all', preset = null }) {
             {isSueAdmin && (
               <label className="block">
                 <span className="text-sm text-gray-500">Тип подразделения</span>
-                <select value={unitTypeFilter} onChange={e => { setUnitTypeFilter(e.target.value); setPage(1) }} className="mt-1 w-full h-11 px-3 border rounded-lg text-base">
+                <select value={unitTypeFilter} onChange={e => setTypeFilter(e.target.value)} className="mt-1 w-full h-11 px-3 border rounded-lg text-base">
                   <option value="all">Все</option>
                   <option value="res">РЭС</option>
                   <option value="esk">ЭСК</option>
