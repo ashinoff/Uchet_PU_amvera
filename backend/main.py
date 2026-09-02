@@ -1225,9 +1225,11 @@ def get_analysis(
         result = {"res": [], "esk": [], "oks": []}
         
         if is_res_user(user) or is_esk_user(user) or is_oks_user(user):
+            own_id = None
             if user.unit_id:
                 unit = db.query(Unit).filter(Unit.id == user.unit_id).first()
                 if unit:
+                    own_id = unit.id
                     stats = get_unit_stats(unit.id)
                     item = {"id": unit.id, "name": unit.name, **stats}
                     if unit.unit_type == UnitType.RES:
@@ -1236,6 +1238,15 @@ def get_analysis(
                         result["oks"].append(item)
                     else:
                         result["esk"].append(item)
+            # Все подразделения ОКС дополнительно видят остаток центрального
+            # склада «ОКС - Склад» (единственная запись unit_type=OKS) — чтобы
+            # каждый видел себя и общий склад ОКС.
+            if is_oks_user(user):
+                for sklad_unit in db.query(Unit).filter(Unit.unit_type == UnitType.OKS).order_by(Unit.name).all():
+                    if sklad_unit.id == own_id:
+                        continue
+                    stats = get_unit_stats(sklad_unit.id)
+                    result["oks"].append({"id": sklad_unit.id, "name": sklad_unit.name, **stats})
             return result
         
         res_units = db.query(Unit).filter(Unit.unit_type == UnitType.RES).order_by(Unit.name).all()
