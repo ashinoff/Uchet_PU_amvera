@@ -45,7 +45,29 @@ settings = Settings()
 ADMIN_CODE = "2233"  # жёстко зашит, окружение не влияет
 
 # ==================== БАЗА ДАННЫХ ====================
-engine = create_engine(settings.DATABASE_URL)
+# Пул соединений с защитой от «молча оборванных» соединений (после сбоев сети
+# или перезапуска БД в Amvera). Без этого запрос на мёртвом TCP-соединении висел
+# часами, синхронные обработчики FastAPI занимали все потоки пула (40), и
+# зависал весь API, включая /api/health и бейдж платформы, при живой статике.
+#   pool_pre_ping — проверка соединения перед выдачей из пула;
+#   pool_recycle  — соединения старше 5 минут пересоздаются;
+#   pool_timeout  — не ждать свободного соединения дольше 15 с (ошибка, а не зависание);
+#   keepalives    — мёртвое соединение обнаруживается примерно за минуту;
+#   statement_timeout — один запрос к БД не дольше 2 минут.
+engine = create_engine(
+    settings.DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    pool_timeout=15,
+    connect_args={
+        "connect_timeout": 10,
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 3,
+        "options": "-c statement_timeout=120000",
+    },
+)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 

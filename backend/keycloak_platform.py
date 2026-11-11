@@ -11,10 +11,10 @@ TTL — Keycloak не дёргается на каждый запрос. Сам 
 
 Переменные окружения (значения по умолчанию — боевые адреса платформы):
   PLATFORM_SSO       — true/false, фиче-флаг (по умолчанию false)
-  KEYCLOAK_URL       — https://keycloak-ashinoff.amvera.io
+  KEYCLOAK_URL       — https://keycloak-waw-ashinoff.waw0.amvera.tech
   KEYCLOAK_REALM     — platform
   KEYCLOAK_AZP       — web-desktop
-  PLATFORM_ORIGIN    — https://sue-system-ashinoff.amvera.io
+  PLATFORM_ORIGIN    — https://sue-system-2-ashinoff.waw0.amvera.tech
   SVET_ACCESS_ROLE   — realm-роль, дающая доступ к приложению (svet-user)
 """
 import os
@@ -26,10 +26,10 @@ from typing import Optional
 from jose import JWTError, jwt
 
 PLATFORM_SSO = os.getenv("PLATFORM_SSO", "false").lower() in ("1", "true", "yes")
-KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "https://keycloak-ashinoff.amvera.io").rstrip("/")
+KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "https://keycloak-waw-ashinoff.waw0.amvera.tech").rstrip("/")
 KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "platform")
 KEYCLOAK_AZP = os.getenv("KEYCLOAK_AZP", "web-desktop")
-PLATFORM_ORIGIN = os.getenv("PLATFORM_ORIGIN", "https://sue-system-ashinoff.amvera.io")
+PLATFORM_ORIGIN = os.getenv("PLATFORM_ORIGIN", "https://sue-system-2-ashinoff.waw0.amvera.tech")
 SVET_ACCESS_ROLE = os.getenv("SVET_ACCESS_ROLE", "svet-user")
 
 KEYCLOAK_ISSUER = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}"
