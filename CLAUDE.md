@@ -150,9 +150,10 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 
 ## Журнал изменений (дополняю сам)
 - **2026-11-12** — Фикс падения на старте `ModuleNotFoundError: No module named
-  'psycopg'`: в `DATABASE_URL` на проде схема `postgresql+psycopg://` (psycopg 3),
-  а в образе только `psycopg2-binary`. Добавлен `_normalize_db_url()` — любые
-  `postgres://` / `postgresql+<драйвер>://` приводятся к `postgresql+psycopg2://`.
+  'psycopg'`. Причина: `sqlalchemy` в requirements не был закреплён, при
+  пересборке встала 2.1, где драйвер по умолчанию для `postgresql://` — psycopg 3,
+  а в образе только `psycopg2-binary`. Закреплено `sqlalchemy>=2.0,<2.1` +
+  `_normalize_db_url()` явно ставит `postgresql+psycopg2://`.
 - **2026-11-12** — Фикс зависаний API (бейдж платформы и сам Светлячок «не
   отвечали» при живой статике; `/api/health` висел > 25 с). Причина — пул
   SQLAlchemy по умолчанию: запросы на молча оборванных соединениях с БД висели
