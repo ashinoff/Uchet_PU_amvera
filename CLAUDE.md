@@ -149,6 +149,13 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-11-12** — Настоящая причина «Нет доступа» в iframe после переезда:
+  `PLATFORM_ORIGIN` во фронте (`App.jsx:9`) зашит при сборке (Vite,
+  `VITE_PLATFORM_ORIGIN`), env Amvera на него НЕ влияет. Был старый
+  `sue-system-ashinoff.amvera.io` → postMessage от новой платформы
+  игнорировался → таймаут 5 с → AccessDenied. Заменён на
+  `https://sue-system-2-ashinoff.waw0.amvera.tech`. При смене адреса платформы
+  менять в ДВУХ местах: `keycloak_platform.py` и `App.jsx`.
 - **2026-11-12** — SSO после переезда Keycloak на waw0 («Нет доступа» в iframe).
   Старый `keycloak-ashinoff.amvera.io` мёртв → в env Amvera должны быть
   `KEYCLOAK_URL=https://keycloak-waw-ashinoff.waw0.amvera.tech`,

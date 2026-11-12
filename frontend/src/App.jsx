@@ -6,7 +6,7 @@ import api from './api'
 const AuthContext = createContext(null)
 
 // Origin платформы, встраивающей приложение в iframe (единый вход)
-const PLATFORM_ORIGIN = import.meta.env.VITE_PLATFORM_ORIGIN || 'https://sue-system-ashinoff.amvera.io'
+const PLATFORM_ORIGIN = import.meta.env.VITE_PLATFORM_ORIGIN || 'https://sue-system-2-ashinoff.waw0.amvera.tech'
 // Мы внутри iframe (то есть, вероятно, внутри платформы)?
 const EMBEDDED = typeof window !== 'undefined' && window.self !== window.top
 
