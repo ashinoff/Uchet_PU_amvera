@@ -149,6 +149,10 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-11-12** — Фикс падения на старте `ModuleNotFoundError: No module named
+  'psycopg'`: в `DATABASE_URL` на проде схема `postgresql+psycopg://` (psycopg 3),
+  а в образе только `psycopg2-binary`. Добавлен `_normalize_db_url()` — любые
+  `postgres://` / `postgresql+<драйвер>://` приводятся к `postgresql+psycopg2://`.
 - **2026-11-12** — Фикс зависаний API (бейдж платформы и сам Светлячок «не
   отвечали» при живой статике; `/api/health` висел > 25 с). Причина — пул
   SQLAlchemy по умолчанию: запросы на молча оборванных соединениях с БД висели

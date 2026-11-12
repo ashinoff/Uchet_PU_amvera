@@ -54,8 +54,17 @@ ADMIN_CODE = "2233"  # жёстко зашит, окружение не влия
 #   pool_timeout  — не ждать свободного соединения дольше 15 с (ошибка, а не зависание);
 #   keepalives    — мёртвое соединение обнаруживается примерно за минуту;
 #   statement_timeout — один запрос к БД не дольше 2 минут.
+def _normalize_db_url(url: str) -> str:
+    # В образе стоит только psycopg2 — любой другой драйвер в схеме URL
+    # (postgres://, postgresql+psycopg://, +asyncpg и т.п.) приводим к нему,
+    # иначе приложение падает на старте с ModuleNotFoundError.
+    scheme, sep, rest = url.partition("://")
+    if sep and scheme.split("+")[0] in ("postgres", "postgresql"):
+        return "postgresql+psycopg2://" + rest
+    return url
+
 engine = create_engine(
-    settings.DATABASE_URL,
+    _normalize_db_url(settings.DATABASE_URL),
     pool_pre_ping=True,
     pool_recycle=300,
     pool_timeout=15,
