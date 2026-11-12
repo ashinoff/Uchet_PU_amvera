@@ -763,6 +763,7 @@ def platform_login(request: Request, db: Session = Depends(get_db)):
     if not ident["keycloak_id"]:
         raise unauthorized
     if not kc.has_svet_access(ident["roles"]):
+        print(f"Platform SSO 403: нет роли {kc.SVET_ACCESS_ROLE}")
         raise HTTPException(403, "Нет доступа к приложению")
 
     user = db.query(User).filter(User.keycloak_id == ident["keycloak_id"]).first()
@@ -773,13 +774,15 @@ def platform_login(request: Request, db: Session = Depends(get_db)):
         user = db.query(User).filter(
             func.lower(User.email) == ident["email"].lower()
         ).first()
-        if user is not None and not user.keycloak_id:
+        # Привязываем и при смене keycloak_id — например, после переезда
+        # Keycloak на новый инстанс у пользователей новые sub.
+        if user is not None and user.keycloak_id != ident["keycloak_id"]:
             user.keycloak_id = ident["keycloak_id"]
             db.commit()
             print(f"Platform SSO: привязан пользователь id={user.id} по email")
 
     if user is None:
-        print("Platform SSO 401: пользователь не найден ни по keycloak_id, ни по username")
+        print("Platform SSO 401: пользователь не найден ни по keycloak_id, ни по email")
         raise unauthorized
     if not user.is_active:
         raise HTTPException(403, "Учетная запись заблокирована")

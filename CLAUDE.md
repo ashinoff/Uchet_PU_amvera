@@ -149,6 +149,13 @@ MoveBulkPage, AnalysisPage. `frontend/src/api.js` — axios с `baseURL: '/api'`
 - git push: credential helper = `store`; при 403 нужен свежий PAT со scope `repo`.
 
 ## Журнал изменений (дополняю сам)
+- **2026-11-12** — SSO после переезда Keycloak на waw0 («Нет доступа» в iframe).
+  Старый `keycloak-ashinoff.amvera.io` мёртв → в env Amvera должны быть
+  `KEYCLOAK_URL=https://keycloak-waw-ashinoff.waw0.amvera.tech`,
+  `PLATFORM_ORIGIN=https://sue-system-2-ashinoff.waw0.amvera.tech` (env важнее
+  дефолтов в коде). Код: ошибка загрузки JWKS → `TokenError` с URL в логе (а не
+  500); при входе по email `keycloak_id` перепривязывается, если сменился (у
+  нового инстанса Keycloak новые sub); лог причины 403 (нет роли `svet-user`).
 - **2026-11-12** — Фикс падения на старте `ModuleNotFoundError: No module named
   'psycopg'`. Причина: `sqlalchemy` в requirements не был закреплён, при
   пересборке встала 2.1, где драйвер по умолчанию для `postgresql://` — psycopg 3,

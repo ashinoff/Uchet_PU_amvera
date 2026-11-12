@@ -53,7 +53,11 @@ def _get_jwks(force: bool = False) -> dict:
     now = time.time()
     stale = (now - _jwks_cache["fetched_at"]) > _JWKS_TTL_SECONDS
     if force or _jwks_cache["keys"] is None or stale:
-        _jwks_cache["keys"] = _fetch_jwks()
+        try:
+            _jwks_cache["keys"] = _fetch_jwks()
+        except Exception as exc:
+            # Keycloak недоступен или не тот KEYCLOAK_URL — понятная причина в лог.
+            raise TokenError(f"JWKS недоступен по {KEYCLOAK_JWKS_URL} ({exc.__class__.__name__})")
         _jwks_cache["fetched_at"] = now
     return _jwks_cache["keys"]
 
