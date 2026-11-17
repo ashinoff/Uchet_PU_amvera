@@ -167,6 +167,15 @@ const btn = {
   ghost: "inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-slate-600 text-sm font-medium hover:bg-[#E8F0F7] transition-colors",
 }
 
+// Кнопки действий согласования: одна форма, смысловые цвета палитры.
+const actBtn = {
+  base: 'inline-flex items-center justify-center gap-1.5 px-3.5 h-9 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none',
+  review: 'bg-[#304B78] text-white shadow-sm hover:bg-[#253D65] active:bg-[#142B49]',
+  approve: 'bg-[#56BDA2] text-[#0A212F] shadow-sm shadow-[#56BDA2]/30 hover:bg-[#4aae94] active:bg-[#3FA88D]',
+  reject: 'bg-white text-[#BA0401] border border-[#F4A9A7] hover:bg-[#BA0401] hover:text-white hover:border-[#BA0401]',
+  neutral: 'bg-white text-[#0A212F] border border-[#CFDFEF] hover:bg-[#E8F0F7]',
+}
+
 // Набор SVG-иконок (тонкая линия, наследует currentColor). Заменяют эмодзи.
 function Icon({ name, className = "w-5 h-5", strokeWidth = 1.8 }) {
   const p = {
@@ -2997,21 +3006,21 @@ function ReviewModal({ item, onClose, onApprove, onReject }) {
           <ReviewDetail detail={detail} source={item.source} loading={loading} />
         </div>
 
-        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4">
+        <div className="sticky bottom-0 bg-[#F2F6FA]/95 backdrop-blur border-t border-[#CFDFEF] px-4 lg:px-6 py-4">
           {rejecting ? (
             <div className="space-y-3">
               <label className="block text-sm font-medium text-red-700">Причина отклонения *</label>
               <textarea value={comment} onChange={e => setComment(e.target.value)} rows={3} placeholder="Опишите, что нужно исправить..." className="w-full px-3 py-2 border rounded-lg" />
               <div className="flex justify-end gap-2">
-                <button onClick={() => setRejecting(false)} disabled={busy} className="px-4 py-2 bg-gray-200 rounded-lg">Назад</button>
-                <button onClick={doReject} disabled={busy} className="px-4 py-2 bg-red-600 text-white rounded-lg disabled:opacity-50">Подтвердить отклонение</button>
+                <button onClick={() => setRejecting(false)} disabled={busy} className={`${actBtn.base} ${actBtn.neutral} h-10 px-4`}>Назад</button>
+                <button onClick={doReject} disabled={busy} className={`${actBtn.base} bg-[#BA0401] text-white hover:bg-[#9A0301] h-10 px-4`}><Icon name="x" className="w-4 h-4" strokeWidth={2.2} /> Подтвердить отклонение</button>
               </div>
             </div>
           ) : (
             <div className="flex justify-end gap-2">
-              <button onClick={onClose} disabled={busy} className="px-4 py-2 bg-gray-200 rounded-lg">Закрыть</button>
-              <button onClick={() => setRejecting(true)} disabled={busy} className="px-4 py-2 bg-red-500 text-white rounded-lg disabled:opacity-50"><Icon name="x" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Не согласовать</button>
-              <button onClick={doApprove} disabled={busy} className="px-4 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50">{busy ? '...' : 'Согласовать'}</button>
+              <button onClick={onClose} disabled={busy} className={`${actBtn.base} ${actBtn.neutral} h-10 px-4`}>Закрыть</button>
+              <button onClick={() => setRejecting(true)} disabled={busy} className={`${actBtn.base} ${actBtn.reject} h-10 px-4`}><Icon name="x" className="w-4 h-4" strokeWidth={2.2} /> Не согласовать</button>
+              <button onClick={doApprove} disabled={busy} className={`${actBtn.base} ${actBtn.approve} h-10 px-4`}><Icon name="check" className="w-4 h-4" strokeWidth={2.2} />{busy ? 'Согласование…' : 'Согласовать'}</button>
             </div>
           )}
         </div>
@@ -3128,7 +3137,8 @@ function ApprovalPage() {
                 <th className="px-3 py-3 text-center">Трубост.</th>
                 <th className="px-3 py-3 text-left">№ ТТР ЭСК</th>
                 <th className="px-3 py-3 text-left">Дата СМР</th>
-                <th className="w-48"></th>
+                {/* Колонка действий закреплена у правого края — видна без прокрутки таблицы */}
+                <th className="sticky right-0 z-[1] bg-gray-50 px-3 py-3 text-left shadow-[-10px_0_12px_-10px_rgba(10,14,41,.25)]">Действия</th>
               </tr>
             </thead>
             <tbody>
@@ -3152,13 +3162,13 @@ function ApprovalPage() {
                   <td className="px-3 py-3 text-center">{i.trubostoyka ? <Icon name="check" className="w-4 h-4 inline-block text-emerald-600" /> : <span className="text-slate-300">—</span>}</td>
                   <td className="px-3 py-3">{i.lsr_va || i.lsr_truba || '—'}</td>
                   <td className="px-3 py-3">{i.smr_date || '—'}</td>
-                  <td className="px-3 py-3">
+                  <td className="sticky right-0 bg-white px-3 py-3 shadow-[-10px_0_12px_-10px_rgba(10,14,41,.25)]">
                     {i.source === 'ОКС' ? (
-                      <button onClick={() => setReviewModal(i)} className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-sm whitespace-nowrap"><Icon name="search" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Рассмотреть</button>
+                      <button onClick={() => setReviewModal(i)} className={`${actBtn.base} ${actBtn.review}`}><Icon name="search" className="w-4 h-4" /> Рассмотреть</button>
                     ) : (
                       <div className="flex gap-2">
-                        <button onClick={() => handleApprove(i.id)} className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm"><Icon name="check" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Согласовать</button>
-                        <button onClick={() => setRejectModal(i)} className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm"><Icon name="x" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Отклонить</button>
+                        <button onClick={() => handleApprove(i.id)} className={`${actBtn.base} ${actBtn.approve}`}><Icon name="check" className="w-4 h-4" strokeWidth={2.2} /> Согласовать</button>
+                        <button onClick={() => setRejectModal(i)} className={`${actBtn.base} ${actBtn.reject}`}><Icon name="x" className="w-4 h-4" strokeWidth={2.2} /> Отклонить</button>
                       </div>
                     )}
                   </td>
@@ -3211,11 +3221,11 @@ function ApprovalPage() {
                 )}
                 <div className="mt-3 flex gap-2">
                   {i.source === 'ОКС' ? (
-                    <button onClick={() => setReviewModal(i)} className="flex-1 h-11 bg-indigo-600 text-white rounded-lg text-sm font-medium"><Icon name="search" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Рассмотреть</button>
+                    <button onClick={() => setReviewModal(i)} className={`${actBtn.base} ${actBtn.review} flex-1 h-11`}><Icon name="search" className="w-4 h-4" /> Рассмотреть</button>
                   ) : (
                     <>
-                      <button onClick={() => handleApprove(i.id)} className="flex-1 h-11 bg-green-600 text-white rounded-lg text-sm font-medium"><Icon name="check" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Согласовать</button>
-                      <button onClick={() => setRejectModal(i)} className="flex-1 h-11 bg-red-500 text-white rounded-lg text-sm font-medium"><Icon name="x" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Отклонить</button>
+                      <button onClick={() => handleApprove(i.id)} className={`${actBtn.base} ${actBtn.approve} flex-1 h-11`}><Icon name="check" className="w-4 h-4" strokeWidth={2.2} /> Согласовать</button>
+                      <button onClick={() => setRejectModal(i)} className={`${actBtn.base} ${actBtn.reject} flex-1 h-11`}><Icon name="x" className="w-4 h-4" strokeWidth={2.2} /> Отклонить</button>
                     </>
                   )}
                 </div>
