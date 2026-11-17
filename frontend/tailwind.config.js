@@ -16,7 +16,7 @@ export default {
       colors: {
         blue: navy, sky: navy, slate: cool, gray: cool,
         emerald: action, green: action, teal: turquoise, cyan: turquoise,
-        amber: warning, yellow: warning, orange: warning, rose: error, red: error, indigo,
+        amber: warning, yellow: warning, orange: warning, rose: error, red: error, indigo, purple: indigo, violet: indigo,
         svet: {
           bg: '#F2F6FA', card: '#FFFFFF', soft: '#E6E9DE', text: '#040509', muted: '#52657A', head: '#0A212F',
           account: '#142B49', work: '#304B78', docs: '#6E91B7', system: '#CFDFEF',

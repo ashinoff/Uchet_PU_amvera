@@ -1210,11 +1210,11 @@ function PUListPage({ filter = 'all', preset = null }) {
             </select>
           )}
           {isSueAdmin && (
-            <div className="flex items-center gap-1 px-2 py-1 border rounded-lg">
-              <button onClick={() => setTypeFilter('all')} className={`px-3 py-1 rounded ${unitTypeFilter === 'all' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}>Все</button>
-              <button onClick={() => setTypeFilter('res')} className={`px-3 py-1 rounded ${unitTypeFilter === 'res' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}>РЭС</button>
-              <button onClick={() => setTypeFilter('esk')} className={`px-3 py-1 rounded ${unitTypeFilter === 'esk' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}>ЭСК</button>
-              <button onClick={() => setTypeFilter('oks')} className={`px-3 py-1 rounded ${unitTypeFilter === 'oks' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}>ОКС</button>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setTypeFilter('all')} className={`px-3 py-1 rounded ${unitTypeFilter === 'all' ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}>Все</button>
+              <button onClick={() => setTypeFilter('res')} className={`px-3 py-1 rounded ${unitTypeFilter === 'res' ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}>РЭС</button>
+              <button onClick={() => setTypeFilter('esk')} className={`px-3 py-1 rounded ${unitTypeFilter === 'esk' ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}>ЭСК</button>
+              <button onClick={() => setTypeFilter('oks')} className={`px-3 py-1 rounded ${unitTypeFilter === 'oks' ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}>ОКС</button>
             </div>
           )}
         </div>
@@ -3674,9 +3674,9 @@ const saveAllMaterials = async () => {
     <div className="space-y-6">
       <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight">Технические задания</h1>
 
-      <div className="flex gap-2 border-b">
-        <button onClick={() => { setTab('list'); setStep(1) }} className={`px-4 py-2 border-b-2 ${tab === 'list' ? 'border-blue-600 text-blue-600' : 'border-transparent'}`}><Icon name="clipboard" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Реестр ТЗ</button>
-        <button onClick={() => { setTab('create'); setStep(1) }} className={`px-4 py-2 border-b-2 ${tab === 'create' ? 'border-blue-600 text-blue-600' : 'border-transparent'}`}><Icon name="plus" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Формирование</button>
+      <div className="flex gap-2 flex-wrap">
+        <button onClick={() => { setTab('list'); setStep(1) }} className={`px-4 py-2 ${tab === 'list' ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}><Icon name="clipboard" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Реестр ТЗ</button>
+        <button onClick={() => { setTab('create'); setStep(1) }} className={`px-4 py-2 ${tab === 'create' ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}><Icon name="plus" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Формирование</button>
       </div>
 
       {tab === 'list' && (() => {
@@ -4461,10 +4461,10 @@ const exportToExcel = async () => {
     <div className="space-y-6">
       <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight">Заявки ЭСК</h1>
 
-      <div className="flex gap-2 border-b">
-        <button onClick={() => setTab('list')} className={`px-4 py-2 border-b-2 ${tab === 'list' ? 'border-blue-600 text-blue-600' : 'border-transparent'}`}><Icon name="clipboard" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Реестр заявок</button>
+      <div className="flex gap-2 flex-wrap">
+        <button onClick={() => setTab('list')} className={`px-4 py-2 ${tab === 'list' ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}><Icon name="clipboard" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Реестр заявок</button>
         {canCreateRequest && (
-          <button onClick={() => setTab('create')} className={`px-4 py-2 border-b-2 ${tab === 'create' ? 'border-blue-600 text-blue-600' : 'border-transparent'}`}><Icon name="plus" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Формирование</button>
+          <button onClick={() => setTab('create')} className={`px-4 py-2 ${tab === 'create' ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}><Icon name="plus" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Формирование</button>
         )}
       </div>
 
@@ -5025,9 +5025,9 @@ function SettingsPage() {
       <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight">Настройки</h1>
 
       {/* Вкладки: на моб. — горизонтальный скролл, на lg — перенос как было */}
-      <div className="flex gap-1 border-b border-slate-200 flex-nowrap overflow-x-auto lg:flex-wrap lg:overflow-visible">
+      <div className="flex gap-2 flex-nowrap overflow-x-auto lg:flex-wrap lg:overflow-visible pb-1">
         {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2.5 border-b-2 whitespace-nowrap text-sm shrink-0 transition-colors ${tab === t.id ? 'border-[#304B78] text-[#304B78] font-medium' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+          <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2.5 whitespace-nowrap text-sm shrink-0 transition-colors ${tab === t.id ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}>
             <Icon name={t.icon} className="w-4 h-4" /> {t.label}
           </button>
         ))}
@@ -7160,8 +7160,8 @@ function AnalysisPage() {
           )}
 
           <BreakdownTable title="РЭС (РСК)" icon="building" units={data.res} totals={isAdmin ? data.res_total : null} section={activeSection} sectionTitle={sectionTitle} />
-          <BreakdownTable title="ЭСК" icon="zap" units={data.esk} totals={isAdmin ? data.esk_total : null} section={activeSection} sectionTitle={sectionTitle} />
           <BreakdownTable title="ОКС" icon="crane" units={data.oks} totals={isAdmin ? data.oks_total : null} section={activeSection} sectionTitle={sectionTitle} />
+          <BreakdownTable title="ЭСК" icon="zap" units={data.esk} totals={isAdmin ? data.esk_total : null} section={activeSection} sectionTitle={sectionTitle} />
 
           {(!data.res || data.res.length === 0) && (!data.esk || data.esk.length === 0) && (!data.oks || data.oks.length === 0) && (
             <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 p-8 text-center text-[#52657A]">Нет данных для отображения</div>
