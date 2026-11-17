@@ -218,6 +218,7 @@ function Icon({ name, className = "w-5 h-5", strokeWidth = 1.8 }) {
     pie: <><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></>,
     user: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
     box: <><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></>,
+    meter: <><rect x="4.5" y="2.5" width="15" height="15" rx="2.5"/><rect x="7.5" y="5.5" width="9" height="4" rx="1"/><path d="M9.2 7.5h1M11.5 7.5h1M13.8 7.5h1"/><circle cx="8.5" cy="13.5" r="1"/><path d="M12 13.5h4"/><path d="M7.5 17.5v2.5M10.5 17.5v2.5M13.5 17.5v2.5M16.5 17.5v2.5"/></>,
     phone: <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1"/>,
   }
   return (
@@ -229,11 +230,11 @@ function Icon({ name, className = "w-5 h-5", strokeWidth = 1.8 }) {
   )
 }
 
-// Логотип-марка «Светлячка» (лампочка в скруглённом квадрате)
+// Логотип-марка «Светлячка» (прибор учёта в скруглённом квадрате)
 function BrandMark({ className = "w-9 h-9" }) {
   return (
     <span className={`inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-[#304B78] to-[#142B49] text-white ${className}`}>
-      <Icon name="bulb" className="w-1/2 h-1/2" strokeWidth={1.8} />
+      <Icon name="meter" className="w-3/5 h-3/5" strokeWidth={1.6} />
     </span>
   )
 }
@@ -413,7 +414,7 @@ function Sidebar({ page, setPage, pendingCount = 0, open = false, onClose }) {
     <aside className={`fixed left-0 top-0 h-full w-72 bg-[#E8F0F7] flex flex-col z-50 lg:z-auto shadow-2xl shadow-[#0A0E29]/25 lg:shadow-none transition-transform duration-500 ease-[cubic-bezier(.22,.7,.25,1)] ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       <div className="px-5 pt-5 pb-4 flex items-center gap-3">
         <span className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-white text-[#142B49] shadow-sm shrink-0">
-          <Icon name="bulb" className="w-6 h-6" strokeWidth={1.7} />
+          <Icon name="meter" className="w-7 h-7" strokeWidth={1.6} />
         </span>
         <div className="leading-tight pl-3 border-l border-[#142B49]/15 min-w-0">
           <div className="svetlyachok-light text-[19px] font-extrabold tracking-wide">СВЕТЛЯЧОК</div>
@@ -829,9 +830,11 @@ function Sheet({ title, subtitle, icon, actions, onClose, size = 'wide', bodyCla
     setTimeout(() => closeRef.current?.(), 340)
   }
   useOverlay(close)
-  const width = size === 'form' ? 'sm:w-[560px]' : 'lg:w-[calc(100vw-96px)] xl:max-w-[1500px]'
+  // На десктопе лист и затемнение доходят ровно до края основного меню (w-72):
+  // меню остаётся видимым и рабочим.
+  const width = size === 'form' ? 'sm:w-[560px]' : ''
   return createPortal(
-    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}>
+    <div className="fixed inset-0 lg:left-72 z-[60]" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}>
       <div className={`absolute inset-0 bg-[#0A0E29]/35 transition-opacity duration-300 ${leaving ? 'opacity-0' : 'animate-fade-in'}`} onClick={close} />
       <div className={`absolute inset-y-0 right-0 w-full ${width} bg-[#F2F6FA] shadow-[-18px_0_50px_rgba(10,14,41,.22)] sm:rounded-l-[28px] flex flex-col overflow-hidden ${leaving ? 'animate-sheet-out' : 'animate-sheet-in'}`}>
         <header className="flex items-center gap-3 lg:gap-4 px-4 lg:px-8 py-3.5 lg:py-5 bg-white border-b border-[#CFDFEF] shrink-0">
@@ -1491,6 +1494,16 @@ function DeleteWithCodeModal({ title, onClose, onDelete }) {
 }
 
 // ==================== КАРТОЧКА ПУ ====================
+// Смысловые блоки карточки ПУ — оттенки групп меню и акцентов палитры.
+const CARD_BLOCK_BASE = 'rounded-2xl border border-[#CFDFEF] border-l-[6px] p-4 lg:p-5 space-y-4 [&_h3]:font-bold [&_h3]:text-[15px] [&_h4]:font-bold'
+const CARD_BLOCK = {
+  account: `${CARD_BLOCK_BASE} border-l-[#142B49] bg-[#F5F8FC] [&_h3]:text-[#142B49]`,
+  docs:    `${CARD_BLOCK_BASE} border-l-[#6E91B7] bg-[#F3F7FB] [&_h3]:text-[#304B78]`,
+  work:    `${CARD_BLOCK_BASE} border-l-[#304B78] bg-[#F1F4F9] [&_h3]:text-[#304B78]`,
+  teal:    `${CARD_BLOCK_BASE} border-l-[#2494A2] bg-[#F0F8F9] [&_h4]:!text-[#19636D]`,
+  aqua:    `${CARD_BLOCK_BASE} border-l-[#71B6BB] bg-[#F2F9F9] [&_h3]:text-[#19636D]`,
+}
+
 function PUCardModal({ itemId, onClose }) {
   const { isSueAdmin, isResUser, isEskUser, isEskAdmin, isOksUser } = useAuth()
   const [item, setItem] = useState(null)
@@ -2017,7 +2030,7 @@ const updateMaterialQty = (materialId, qty) => {
   ))
 }
 
-  if (loading) return <Sheet icon="gauge" title="Карточка ПУ" onClose={onClose}><div className="py-16"><RossetiLoader /></div></Sheet>
+  if (loading) return <Sheet icon="meter" title="Карточка ПУ" onClose={onClose}><div className="py-16"><RossetiLoader /></div></Sheet>
 
     const isEsk = item?.current_unit_type === 'ESK_UNIT' || item?.current_unit_type === 'ESK'
     const isRes = item?.current_unit_type === 'RES'
@@ -2048,11 +2061,13 @@ const updateMaterialQty = (materialId, qty) => {
       ]
 
   return (
-    <Sheet icon="gauge" title="Карточка ПУ" subtitle={<span className="font-mono">{item.serial_number}</span>} onClose={onClose} bodyClassName="">
+    <Sheet icon="meter" title="Карточка ПУ" subtitle={<span className="font-mono">{item.serial_number}</span>} onClose={onClose} bodyClassName="">
       <div className="pu-card bg-white lg:my-6 lg:rounded-3xl lg:border lg:border-[#CFDFEF] lg:shadow-sm">
 
         <div className="p-4 lg:p-6 space-y-4">
           {/* Основное */}
+          <div className={CARD_BLOCK.account}>
+          <h3 className="font-medium">Основное</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Серийный номер</label>
@@ -2108,10 +2123,11 @@ const updateMaterialQty = (materialId, qty) => {
             </div>
           </div>
 
+          </div>
+
           {/* Для Техприс (РЭС и ЭСК) */}
           {item.status === 'TECHPRIS' && (
-            <>
-              <hr />
+            <div className={CARD_BLOCK.docs}>
               <div className="flex justify-between items-center">
                 <h3 className="font-medium">Данные техприсоединения</h3>
                 {canEdit && (
@@ -2160,13 +2176,12 @@ const updateMaterialQty = (materialId, qty) => {
                 <textarea value={item.address || ''} onChange={e => update('address', e.target.value)} disabled={!canEdit} rows={2} className={`w-full px-3 py-2 border rounded-lg ${errors.address ? 'border-red-500 bg-red-50' : ''}`} />
                 {errors.address && <span className="text-red-500 text-xs">{errors.address}</span>}
               </div>
-            </>
+            </div>
           )}
 
           {/* Для Замена и ИЖЦ (только РЭС) */}
           {(item.status === 'ZAMENA' || item.status === 'IZHC') && isRes && (
-            <>
-              <hr />
+            <div className={CARD_BLOCK.docs}>
               <div className="flex justify-between items-center mb-2">
                <h3 className="font-medium">Данные для замены/ИЖЦ</h3>
                {canEdit && (
@@ -2187,13 +2202,12 @@ const updateMaterialQty = (materialId, qty) => {
                 />
                 {errors.ls_number && <span className="text-red-500 text-xs">{errors.ls_number}</span>}
               </div>
-            </>
+            </div>
           )}
 
           {/* ТТР для РЭС / ОКС (для ОКС с подрядчиком — скрыто) */}
           {isResLike && item.status !== 'SKLAD' && (
-            <>
-              <hr />
+            <div className={CARD_BLOCK.work}>
               {!isOksContractor && (<>
               <h3 className="font-medium">ТТР (для РЭС)</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2335,15 +2349,14 @@ const updateMaterialQty = (materialId, qty) => {
                   </div>
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {/* ТТР для ЭСК */}
           {/* Параметры СМР/ЛСР для ЭСК */}
 {/* Параметры СМР/ЛСР для ЭСК */}
 {isEsk && item.status !== 'SKLAD' && (
-  <>
-    <hr />
+  <div className={CARD_BLOCK.work}>
     <h3 className="font-medium">Параметры СМР/ЛСР</h3>
     <div className="grid grid-cols-2 gap-4">
       <div>
@@ -2462,12 +2475,12 @@ const updateMaterialQty = (materialId, qty) => {
         <input type="date" value={item.smr_date || ''} onChange={e => update('smr_date', e.target.value)} disabled={!canEdit} className={`w-full px-3 py-2 border rounded-lg ${errors.smr_date ? 'border-red-500 bg-red-50' : ''}`} />
       </div>
     </div>
-  </>
+  </div>
 )}
 
 {/* ВА и ТТ для РЭС / ОКС */}
 {isResLike && item.status !== 'SKLAD' && canEdit && (
-  <div className="border-t pt-4 mt-4">
+  <div className={CARD_BLOCK.teal}>
     <h4 className="font-medium text-gray-700 mb-3"><Icon name="zap" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Оборудование</h4>
     <div className="grid grid-cols-2 gap-4">
       {/* ВА */}
@@ -2562,8 +2575,7 @@ const updateMaterialQty = (materialId, qty) => {
           
           {/* Материалы для РЭС / ОКС (для ОКС с подрядчиком — скрыто) */}
 {isResLike && item.status !== 'SKLAD' && materials.length > 0 && !isOksContractor && (
-  <>
-    <hr />
+  <div className={CARD_BLOCK.aqua}>
     <h3 className="font-medium"><Icon name="package" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Материалы</h3>
     {loadingMaterials ? (
       <div className="text-center py-4 text-gray-500">Загрузка...</div>
@@ -2610,11 +2622,12 @@ const updateMaterialQty = (materialId, qty) => {
         </table>
       </div>
     )}
-  </>
+  </div>
 )}
 
           {/* Номер ТЗ и Заявки */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className={`${CARD_BLOCK.docs.replace('space-y-4', '')} grid grid-cols-2 gap-4`}>
+            <h3 className="col-span-2 font-medium">Техзадание и заявка</h3>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">Номер ТЗ</label>
               <input type="text" value={item.tz_number || '—'} disabled className="w-full px-3 py-2 border rounded-lg bg-gray-50" />
