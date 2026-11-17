@@ -820,7 +820,7 @@ const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce
 
 // «Лист» — панель, которая въезжает справа поверх раздела (как карточка ПУ в
 // мониторинге напряжения). size: 'wide' — почти на весь экран, 'form' — узкая форма.
-function Sheet({ title, subtitle, icon, actions, onClose, size = 'wide', bodyClassName = 'p-4 lg:p-8', children }) {
+function Sheet({ title, subtitle, icon, actions, onClose, size = 'wide', fill = false, bodyClassName = 'p-4 lg:p-8', children }) {
   const [leaving, setLeaving] = useState(false)
   const closeRef = useRef(onClose); closeRef.current = onClose
   const close = () => {
@@ -851,7 +851,7 @@ function Sheet({ title, subtitle, icon, actions, onClose, size = 'wide', bodyCla
           </button>
         </header>
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          <div className={`mx-auto w-full ${size === 'form' ? '' : 'max-w-5xl'} ${bodyClassName}`}>{children}</div>
+          <div className={`mx-auto w-full ${size === 'form' || fill ? '' : 'max-w-5xl'} ${bodyClassName}`}>{children}</div>
         </div>
       </div>
     </div>,
@@ -1494,14 +1494,17 @@ function DeleteWithCodeModal({ title, onClose, onDelete }) {
 }
 
 // ==================== КАРТОЧКА ПУ ====================
-// Смысловые блоки карточки ПУ — оттенки групп меню и акцентов палитры.
-const CARD_BLOCK_BASE = 'rounded-2xl border border-[#CFDFEF] border-l-[6px] p-4 lg:p-5 space-y-4 [&_h3]:font-bold [&_h3]:text-[15px] [&_h4]:font-bold'
+// Смысловые блоки карточки ПУ: блок целиком в своём оттенке, заголовок — цветная
+// плашка (цвета групп меню и акцентов палитры). На широком экране — две колонки,
+// крупные блоки (ТТР/СМР, материалы) на всю ширину.
+const CARD_TITLE = '[&_h3]:inline-flex [&_h3]:items-center [&_h3]:gap-1.5 [&_h3]:w-fit [&_h3]:px-3 [&_h3]:py-1.5 [&_h3]:rounded-xl [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-white [&_h4]:inline-flex [&_h4]:items-center [&_h4]:gap-1.5 [&_h4]:w-fit [&_h4]:px-3 [&_h4]:py-1.5 [&_h4]:rounded-xl [&_h4]:text-sm [&_h4]:font-bold [&_h4]:!text-white'
+const CARD_BLOCK_BASE = `rounded-2xl p-4 lg:p-5 space-y-4 shadow-sm ${CARD_TITLE}`
 const CARD_BLOCK = {
-  account: `${CARD_BLOCK_BASE} border-l-[#142B49] bg-[#F5F8FC] [&_h3]:text-[#142B49]`,
-  docs:    `${CARD_BLOCK_BASE} border-l-[#6E91B7] bg-[#F3F7FB] [&_h3]:text-[#304B78]`,
-  work:    `${CARD_BLOCK_BASE} border-l-[#304B78] bg-[#F1F4F9] [&_h3]:text-[#304B78]`,
-  teal:    `${CARD_BLOCK_BASE} border-l-[#2494A2] bg-[#F0F8F9] [&_h4]:!text-[#19636D]`,
-  aqua:    `${CARD_BLOCK_BASE} border-l-[#71B6BB] bg-[#F2F9F9] [&_h3]:text-[#19636D]`,
+  account: `${CARD_BLOCK_BASE} bg-[#E4EAF3] [&_h3]:bg-[#142B49]`,
+  docs:    `${CARD_BLOCK_BASE} bg-[#ECEEE4] [&_h3]:bg-[#6E91B7]`,
+  work:    `${CARD_BLOCK_BASE} xl:col-span-2 bg-[#E2F3EE] [&_h3]:bg-[#2E8C74]`,
+  teal:    `${CARD_BLOCK_BASE} bg-[#DDEFF1] [&_h4]:bg-[#2494A2]`,
+  aqua:    `${CARD_BLOCK_BASE} xl:col-span-2 bg-[#FBF3DC] [&_h3]:bg-[#A87E1E]`,
 }
 
 function PUCardModal({ itemId, onClose }) {
@@ -2061,10 +2064,10 @@ const updateMaterialQty = (materialId, qty) => {
       ]
 
   return (
-    <Sheet icon="meter" title="Карточка ПУ" subtitle={<span className="font-mono">{item.serial_number}</span>} onClose={onClose} bodyClassName="">
-      <div className="pu-card bg-white lg:my-6 lg:rounded-3xl lg:border lg:border-[#CFDFEF] lg:shadow-sm">
+    <Sheet icon="meter" title="Карточка ПУ" subtitle={<span className="font-mono">{item.serial_number}</span>} onClose={onClose} fill bodyClassName="">
+      <div className="pu-card">
 
-        <div className="p-4 lg:p-6 space-y-4">
+        <div className="p-4 lg:p-6 grid xl:grid-cols-2 gap-4 items-start">
           {/* Основное */}
           <div className={CARD_BLOCK.account}>
           <h3 className="font-medium">Основное</h3>
@@ -2640,7 +2643,7 @@ const updateMaterialQty = (materialId, qty) => {
 
 {/* Блокировка по ТЗ */}
 {hasTZ && (
-  <div className={`p-4 rounded-lg ${isSueAdmin ? 'bg-amber-50 border border-amber-200' : 'bg-blue-50 border border-blue-200'}`}>
+  <div className={`xl:col-span-2 p-4 rounded-2xl ${isSueAdmin ? 'bg-amber-50 border border-amber-200' : 'bg-blue-50 border border-blue-200'}`}>
     <div className="flex justify-between items-center">
       <span className={isSueAdmin ? 'text-amber-700 font-medium' : 'text-blue-700 font-medium'}>
         {isSueAdmin 
@@ -2672,7 +2675,7 @@ const updateMaterialQty = (materialId, qty) => {
           
           {/* Согласование */}
 {item.approval_status && item.approval_status !== 'NONE' && (
-  <div className={`p-4 rounded-lg ${
+  <div className={`xl:col-span-2 p-4 rounded-2xl ${
     item.approval_status === 'APPROVED' ? 'bg-green-50 border border-green-200' : 
     item.approval_status === 'REJECTED' ? 'bg-red-50 border border-red-200' :
     'bg-yellow-50 border border-yellow-200'
@@ -2718,7 +2721,7 @@ const updateMaterialQty = (materialId, qty) => {
         </div>
 
         {canEdit && (
-          <div className="sticky bottom-0 z-10 bg-[#F2F6FA]/95 backdrop-blur border-t border-[#CFDFEF] lg:rounded-b-3xl px-4 lg:px-6 py-3 lg:py-4 flex justify-end gap-2">
+          <div className="sticky bottom-0 z-10 bg-[#F2F6FA]/95 backdrop-blur border-t border-[#CFDFEF] px-4 lg:px-6 py-3 lg:py-4 flex justify-end gap-2">
             <button onClick={onClose} className="px-4 py-2 min-h-[44px] lg:min-h-0 bg-gray-200 rounded-lg">Отмена</button>
             {(isEsk || isOks) && item.status === 'TECHPRIS' && item.approval_status !== 'APPROVED' && item.approval_status !== 'PENDING' && (
               <button onClick={handleSendApproval} disabled={saving} className="px-4 py-2 min-h-[44px] lg:min-h-0 bg-orange-500 text-white rounded-lg disabled:opacity-50">
