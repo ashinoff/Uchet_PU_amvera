@@ -1,4 +1,5 @@
 import { useState, useEffect, createContext, useContext, Fragment, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import api from './api'
 
 // ==================== КОНТЕКСТ АВТОРИЗАЦИИ ====================
@@ -133,19 +134,18 @@ function FlickerStyle() {
         animation: svetFlicker 5.5s infinite both; will-change: opacity;
       }
       .svetlyachok-light {
-        color: #0B4DA2;
-        text-shadow: 0 0 4px rgba(37,99,235,.45), 0 0 10px rgba(37,99,235,.3), 0 0 16px rgba(59,130,246,.25);
+        color: #142B49;
+        text-shadow: 0 0 4px rgba(110,145,183,.55), 0 0 10px rgba(110,145,183,.4), 0 0 18px rgba(86,189,162,.3);
         animation: svetFlicker 5.5s infinite both; will-change: opacity;
       }
       @media (prefers-reduced-motion: reduce) { .svetlyachok, .svetlyachok-light { animation: none; } }
 
-      /* Скролл меню — в тон тёмного сайдбара (slate-900), чуть светлее,
-         чтобы ползунок не выделялся яркой полосой сверху донизу. */
-      .sidebar-scroll { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.12) transparent; }
+      /* Скролл меню — в тон светлой подложки меню (#E8F0F7). */
+      .sidebar-scroll { scrollbar-width: thin; scrollbar-color: rgba(20,43,73,.18) transparent; }
       .sidebar-scroll::-webkit-scrollbar { width: 6px; }
       .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
-      .sidebar-scroll::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,.10); border-radius: 8px; }
-      .sidebar-scroll::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,.18); }
+      .sidebar-scroll::-webkit-scrollbar-thumb { background-color: rgba(20,43,73,.14); border-radius: 8px; }
+      .sidebar-scroll::-webkit-scrollbar-thumb:hover { background-color: rgba(20,43,73,.26); }
     `}</style>
   )
 }
@@ -153,17 +153,18 @@ function FlickerStyle() {
 const useAuth = () => useContext(AuthContext)
 
 // ==================== ДИЗАЙН-СИСТЕМА ====================
-// Палитра: белый фон, фирменный синий РОССЕТИ, нейтральный slate, семантика.
-const BRAND = '#0B4DA2'        // основной синий
-const BRAND_DARK = '#08376f'   // ховер/нажатие
+// Палитра «Светлячка» (tailwind.config.js): синее меню, светлая рабочая область,
+// смысловые акценты — зелёный «действие», жёлтый «внимание», красный «ошибка».
+const BRAND = '#304B78'        // синий «Выполнение»
+const BRAND_DARK = '#142B49'   // тёмно-синий «Учёт»
 
 // Единые стили кнопок (используются по всему интерфейсу)
 const btn = {
-  primary: "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#0B4DA2] text-white text-sm font-medium shadow-sm hover:bg-[#093f86] active:bg-[#08376f] disabled:opacity-50 disabled:pointer-events-none transition-colors",
-  secondary: "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white text-slate-700 text-sm font-medium border border-slate-200 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-colors",
-  success: "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-colors",
-  danger: "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-rose-600 text-white text-sm font-medium shadow-sm hover:bg-rose-700 disabled:opacity-50 transition-colors",
-  ghost: "inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-100 transition-colors",
+  primary: "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#56BDA2] text-[#0A212F] text-sm font-semibold shadow-sm shadow-[#56BDA2]/30 hover:bg-[#4aae94] active:bg-[#3FA88D] disabled:opacity-50 disabled:pointer-events-none transition-colors",
+  secondary: "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white text-[#0A212F] text-sm font-medium border border-slate-200 hover:bg-[#E8F0F7] hover:border-[#CFDFEF] disabled:opacity-50 transition-colors",
+  success: "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#56BDA2] text-[#0A212F] text-sm font-semibold shadow-sm hover:bg-[#4aae94] disabled:opacity-50 transition-colors",
+  danger: "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#BA0401] text-white text-sm font-semibold shadow-sm hover:bg-[#9A0301] disabled:opacity-50 transition-colors",
+  ghost: "inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-slate-600 text-sm font-medium hover:bg-[#E8F0F7] transition-colors",
 }
 
 // Набор SVG-иконок (тонкая линия, наследует currentColor). Заменяют эмодзи.
@@ -210,6 +211,14 @@ function Icon({ name, className = "w-5 h-5", strokeWidth = 1.8 }) {
     ruler: <><rect x="3" y="8" width="18" height="8" rx="1" transform="rotate(0 12 12)"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/></>,
     save: <><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 3v5h7"/><rect x="8" y="13" width="8" height="6"/></>,
     chevron: <path d="m6 9 6 6 6-6"/>,
+    chevronRight: <path d="m9 6 6 6-6 6"/>,
+    gauge: <><path d="M4.5 17a8.5 8.5 0 1 1 15 0"/><path d="m12 13 3.5-4"/><circle cx="12" cy="13" r="1.3"/><path d="M7 13h.01M17 13h.01M12 7.5v.01"/></>,
+    scan: <><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></>,
+    layers: <><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></>,
+    pie: <><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></>,
+    user: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
+    box: <><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></>,
+    phone: <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1"/>,
   }
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -220,11 +229,11 @@ function Icon({ name, className = "w-5 h-5", strokeWidth = 1.8 }) {
   )
 }
 
-// Логотип-марка РОССЕТИ (молния в скруглённом квадрате)
+// Логотип-марка «Светлячка» (лампочка в скруглённом квадрате)
 function BrandMark({ className = "w-9 h-9" }) {
   return (
-    <span className={`inline-flex items-center justify-center rounded-xl bg-[#0B4DA2] text-white ${className}`}>
-      <Icon name="zap" className="w-1/2 h-1/2" strokeWidth={2} />
+    <span className={`inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-[#304B78] to-[#142B49] text-white ${className}`}>
+      <Icon name="bulb" className="w-1/2 h-1/2" strokeWidth={1.8} />
     </span>
   )
 }
@@ -270,7 +279,7 @@ export default function App() {
 // (Header) и как единый источник имён. Пункты меню строятся отдельно в Sidebar
 // (там ещё роли/бейджи), а здесь — только человекочитаемые названия.
 const NAV_TITLES = {
-  home: 'Главная',
+  home: 'Сводка',
   pu: 'Приборы учёта',
   'pu-sklad': 'Склад',
   'pu-done': 'Завершённые СМР',
@@ -312,11 +321,12 @@ function Main() {
   if (!user) return EMBEDDED ? <AccessDenied /> : <LoginPage />
 
   return (
-    <div className="min-h-screen flex bg-slate-50 text-slate-800">
-      {/* Тёмная подложка под выехавшим меню (только моб.), тап — закрыть */}
-      {menuOpen && (
-        <div className="lg:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setMenuOpen(false)} />
-      )}
+    <div className="min-h-screen flex bg-[#F2F6FA] text-[#040509]">
+      {/* Подложка под выехавшим меню (только моб.), тап — закрыть */}
+      <div
+        className={`lg:hidden fixed inset-0 bg-[#0A0E29]/45 backdrop-blur-[2px] z-40 transition-opacity duration-500 ${menuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setMenuOpen(false)} aria-hidden="true"
+      />
 
       <Sidebar
         page={page}
@@ -326,9 +336,9 @@ function Main() {
         onClose={() => setMenuOpen(false)}
       />
 
-      <div className="flex-1 lg:ml-60 min-w-0">
+      <div className="flex-1 lg:ml-72 min-w-0">
         <Header page={page} />
-        <div className="p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6">
+        <div key={page} className="p-3 sm:p-4 lg:px-8 lg:py-6 pb-24 lg:pb-8 animate-fade-in">
           {page === 'home' && <HomePage setPage={go} onOpenPU={openPU} />}
           {page === 'pu' && <PUListPage filter="all" preset={puPreset} />}
           {page === 'pu-sklad' && <PUListPage filter="sklad" />}
@@ -351,11 +361,11 @@ function Main() {
         <button
           onClick={() => setMenuOpen(true)}
           aria-label="Открыть меню"
-          className="lg:hidden fixed bottom-4 right-4 z-40 w-14 h-14 rounded-full bg-[#0B4DA2] text-white shadow-lg flex items-center justify-center active:bg-[#08376f] transition-colors"
+          className="lg:hidden fixed bottom-4 right-4 z-40 w-14 h-14 rounded-2xl bg-gradient-to-br from-[#304B78] to-[#142B49] text-white shadow-lg shadow-[#142B49]/35 flex items-center justify-center active:scale-95 transition-transform"
         >
           <Icon name="menu" className="w-6 h-6" strokeWidth={2} />
           {pendingCount > 0 && (
-            <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-rose-500 rounded-full border-2 border-white" />
+            <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1 bg-[#DBB13B] text-[#0A212F] text-[11px] font-bold rounded-lg border-2 border-[#F2F6FA] flex items-center justify-center tabular-nums">{pendingCount > 99 ? '99+' : pendingCount}</span>
           )}
         </button>
       )}
@@ -371,54 +381,81 @@ function Sidebar({ page, setPage, pendingCount = 0, open = false, onClose }) {
   const pick = (id) => { setPage(id); onClose?.() }
 
   const items = [
-    { id: 'home', icon: 'home', label: 'Главная', show: true },
-    { id: 'pu', icon: 'package', label: 'Приборы учёта', show: true },
-    { id: 'upload', icon: 'upload', label: 'Загрузка', show: canUpload },
-    { id: 'pu-sklad', icon: 'warehouse', label: 'Склад', show: true },
-    { id: 'pu-done', icon: 'check', label: 'Завершённые СМР', show: true },
-    { id: 'pu-actioned', icon: 'tag', label: 'Актированные ПУ', show: true },
-    { id: 'analysis', icon: 'chart', label: 'Анализ остатков', show: true },
-    { id: 'move-scan', icon: 'package', label: 'Перемещение сканером', show: isSueAdmin || isLabUser || isEskAdmin || isOksAdmin },
-    { id: 'approval', icon: 'checkCircle', label: 'Согласование', show: canApprove, badge: pendingCount },
-    { id: 'tz', icon: 'clipboard', label: 'Техн. задания', show: isSueAdmin || isOksAdmin },
+    { id: 'home', icon: 'chart', label: 'Сводка', show: true },
+    { id: 'pu', icon: 'gauge', label: 'Приборы учёта', show: true },
+    { id: 'pu-sklad', icon: 'box', label: 'Склад', show: true },
+    { id: 'move-scan', icon: 'scan', label: 'Перемещение сканером', show: isSueAdmin || isLabUser || isEskAdmin || isOksAdmin },
+    { id: 'pu-done', icon: 'wrench', label: 'Завершённые СМР', show: true },
+    { id: 'pu-actioned', icon: 'clipboard', label: 'Актированные ПУ', show: true },
+    { id: 'approval', icon: 'layers', label: 'Согласование', show: canApprove, badge: pendingCount },
+    { id: 'tz', icon: 'fileText', label: 'Тех. задания', show: isSueAdmin || isOksAdmin },
     { id: 'requests', icon: 'fileEdit', label: 'Заявки ЭСК', show: isSueAdmin || isEskAdmin || isEskUser || isOksAdmin },
     { id: 'memo', icon: 'fileText', label: 'Служебки', show: isSueAdmin },
+    { id: 'analysis', icon: 'pie', label: 'Анализ остатков', show: true },
+    { id: 'upload', icon: 'upload', label: 'Загрузка', show: canUpload },
     { id: 'settings', icon: 'settings', label: 'Настройки', show: canManageUsers || isEskAdmin || isResUser || isEskUser || isOksAdmin },
-    ].filter(i => i.show)
+  ].filter(i => i.show)
+
+  // Группы меню по смыслу — у каждой свой оттенок синего из палитры
+  // (от тёмного «Учёта» до светлой «Системы»).
+  const groups = [
+    { id: 'account', title: 'Учёт', items: ['home', 'pu', 'pu-sklad', 'move-scan'],
+      box: 'bg-[#142B49] text-white', title_: 'text-white', item: 'text-white/85 hover:bg-white/10 hover:text-white', icon: 'text-white/70' },
+    { id: 'work', title: 'Выполнение', items: ['pu-done', 'pu-actioned', 'approval'],
+      box: 'bg-[#304B78] text-white', title_: 'text-white', item: 'text-white/85 hover:bg-white/10 hover:text-white', icon: 'text-white/70' },
+    { id: 'docs', title: 'Документы', items: ['tz', 'requests', 'memo'],
+      box: 'bg-[#6E91B7] text-white', title_: 'text-white', item: 'text-white/90 hover:bg-white/15 hover:text-white', icon: 'text-white/80' },
+    { id: 'system', title: 'Система', items: ['analysis', 'upload', 'settings'],
+      box: 'bg-[#CFDFEF] text-[#142B49]', title_: 'text-[#142B49]', item: 'text-[#142B49]/85 hover:bg-white/55 hover:text-[#142B49]', icon: 'text-[#304B78]' },
+  ]
 
   return (
-    <aside className={`fixed left-0 top-0 h-full w-60 bg-slate-900 text-slate-300 flex flex-col z-50 lg:z-auto transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-      <div className="px-4 py-5 flex items-center gap-3 border-b border-white/5">
-        <BrandMark className="w-9 h-9" />
-        <div className="leading-tight">
-          <div className="font-semibold text-white text-sm">Система учёта ПУ</div>
-          <div className="text-[11px] svetlyachok">ПК «Светлячок»</div>
+    <aside className={`fixed left-0 top-0 h-full w-72 bg-[#E8F0F7] flex flex-col z-50 lg:z-auto shadow-2xl shadow-[#0A0E29]/25 lg:shadow-none transition-transform duration-500 ease-[cubic-bezier(.22,.7,.25,1)] ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      <div className="px-5 pt-5 pb-4 flex items-center gap-3">
+        <span className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-white text-[#142B49] shadow-sm shrink-0">
+          <Icon name="bulb" className="w-6 h-6" strokeWidth={1.7} />
+        </span>
+        <div className="leading-tight pl-3 border-l border-[#142B49]/15 min-w-0">
+          <div className="svetlyachok-light text-[19px] font-extrabold tracking-wide">СВЕТЛЯЧОК</div>
+          <div className="text-[13px] text-[#142B49]/80 font-medium">Система учёта ПУ</div>
         </div>
+        <button onClick={onClose} aria-label="Закрыть меню" className="lg:hidden ml-auto w-9 h-9 rounded-xl text-[#142B49] hover:bg-white/60 flex items-center justify-center">
+          <Icon name="x" className="w-5 h-5" />
+        </button>
       </div>
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto sidebar-scroll">
-        {items.map(i => {
-          const active = page === i.id
+      <nav className="flex-1 px-3 pb-3 space-y-2.5 overflow-y-auto sidebar-scroll">
+        {groups.map(g => {
+          const groupItems = items.filter(i => g.items.includes(i.id))
+          if (!groupItems.length) return null
           return (
-            <button key={i.id} onClick={() => pick(i.id)}
-              className={`group w-full text-left px-3 py-2 rounded-lg flex items-center gap-3 text-sm transition-colors ${active ? 'bg-[#0B4DA2] text-white font-medium shadow-sm' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}>
-              <Icon name={i.icon} className={`w-[18px] h-[18px] shrink-0 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
-              <span className="flex-1 truncate">{i.label}</span>
-              {i.badge > 0 && <span className="bg-rose-500 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">{i.badge}</span>}
-            </button>
+            <div key={g.id} className={`rounded-2xl p-2 shadow-sm ${g.box}`}>
+              <div className={`px-2.5 pt-1 pb-1.5 text-[12px] font-bold uppercase tracking-[.08em] ${g.title_}`}>{g.title}</div>
+              {groupItems.map(i => {
+                const active = page === i.id
+                return (
+                  <button key={i.id} onClick={() => pick(i.id)} aria-current={active ? 'page' : undefined}
+                    className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center gap-3 text-sm transition-colors ${active ? 'bg-white text-[#142B49] font-semibold shadow-sm' : g.item}`}>
+                    <Icon name={i.icon} className={`w-[18px] h-[18px] shrink-0 ${active ? 'text-[#304B78]' : g.icon}`} />
+                    <span className="flex-1 truncate">{i.label}</span>
+                    {i.badge > 0 && <span className="bg-[#DBB13B] text-[#0A212F] text-[11px] font-bold px-2 py-0.5 rounded-lg tabular-nums">{i.badge}</span>}
+                  </button>
+                )
+              })}
+            </div>
           )
         })}
       </nav>
-      <div className="px-3 pb-2 pt-3 border-t border-white/5">
-        <div className="bg-white/5 rounded-lg px-3 py-2.5 mb-2">
-          <div className="font-medium text-white text-sm truncate">{user?.full_name}</div>
-          <div className="text-xs text-slate-400 truncate">{user?.unit_name}</div>
-          <div className="text-[11px] text-slate-500 truncate">{user?.role_name}</div>
+      <div className="px-3 pb-3 pt-1 space-y-2">
+        <div className="bg-[#DBE7F1] rounded-2xl px-3 py-2.5 flex items-center gap-3">
+          <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white text-[#304B78] shrink-0"><Icon name="user" className="w-5 h-5" /></span>
+          <div className="min-w-0">
+            <div className="font-semibold text-[#0A212F] text-sm truncate">{user?.full_name}</div>
+            <div className="text-xs text-[#52657A] truncate">{user?.unit_name}{user?.role_name ? ` · ${user.role_name}` : ''}</div>
+          </div>
         </div>
-      </div>
-      <div className="px-4 py-3 border-t border-white/5 text-[11px] text-slate-500">
-        <div className="text-slate-400 font-medium mb-0.5">Техническая поддержка</div>
-        <div>Элла Сергеевна</div>
-        <div>+7 (988) 414-93-74</div>
+        <div className="px-3 text-[11px] text-[#52657A] leading-snug">
+          <span className="font-medium text-[#142B49]/80">Техподдержка:</span> Элла Сергеевна, <a href="tel:+79884149374" className="whitespace-nowrap hover:text-[#142B49]">+7 (988) 414-93-74</a>
+        </div>
       </div>
     </aside>
   )
@@ -426,13 +463,13 @@ function Sidebar({ page, setPage, pendingCount = 0, open = false, onClose }) {
 
 function Header({ page }) {
   const { user } = useAuth()
-  return <header className="h-14 lg:h-16 bg-white/90 backdrop-blur border-b border-slate-200 px-4 lg:px-6 flex items-center justify-between sticky top-0 z-10">
+  return <header className="h-14 lg:h-16 bg-[#F2F6FA]/85 backdrop-blur border-b border-[#CFDFEF] px-4 lg:px-8 flex items-center justify-between gap-3 sticky top-0 z-10">
     {/* Моб.: название текущего раздела; десктоп (lg): подразделение — как было */}
-    <h1 className="font-semibold text-slate-900 truncate min-w-0">
+    <h1 className="font-bold text-[#0A212F] truncate min-w-0 lg:text-lg">
       <span className="lg:hidden">{NAV_TITLES[page] || 'Система учёта ПУ'}</span>
       <span className="hidden lg:inline">{user?.unit_name || 'Система учёта ПУ'}</span>
     </h1>
-    <span className="shrink-0 ml-2 lg:ml-0 text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full whitespace-nowrap">{user?.role_name}</span>
+    <span className="shrink-0 text-sm text-[#304B78] bg-white border border-[#CFDFEF] px-3 py-1 rounded-xl whitespace-nowrap">{user?.role_name}</span>
   </header>
 }
 
@@ -470,7 +507,7 @@ function LoginPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Фоновый акцент */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0B4DA2] to-[#08213f]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#304B78] to-[#0A0E29]" />
       <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5" />
       <div className="absolute -bottom-32 -left-20 w-96 h-96 rounded-full bg-white/5" />
 
@@ -483,18 +520,18 @@ function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1.5">Логин</label>
-            <input type="text" placeholder="Введите логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full px-4 py-3 lg:py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4DA2]/30 focus:border-[#0B4DA2] transition" />
+            <input type="text" placeholder="Введите логин" value={username} onChange={e => setUsername(e.target.value)} className="w-full px-4 py-3 lg:py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#304B78]/30 focus:border-[#304B78] transition" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1.5">Пароль</label>
-            <input type="password" placeholder="Введите пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 lg:py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4DA2]/30 focus:border-[#0B4DA2] transition" />
+            <input type="password" placeholder="Введите пароль" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 lg:py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#304B78]/30 focus:border-[#304B78] transition" />
           </div>
           {error && (
             <div className="flex items-center gap-2 text-rose-600 text-sm bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
               <Icon name="alert" className="w-4 h-4 shrink-0" /> {error}
             </div>
           )}
-          <button type="submit" disabled={loading} className="w-full py-3 lg:py-2.5 bg-[#0B4DA2] text-white font-medium rounded-lg hover:bg-[#093f86] active:bg-[#08376f] disabled:opacity-50 transition-colors">
+          <button type="submit" disabled={loading} className="w-full py-3 lg:py-2.5 bg-[#304B78] text-white font-medium rounded-lg hover:bg-[#253D65] active:bg-[#142B49] disabled:opacity-50 transition-colors">
             {loading ? 'Вход…' : 'Войти'}
           </button>
         </form>
@@ -505,11 +542,11 @@ function LoginPage() {
 
 // ==================== ГЛАВНАЯ СТРАНИЦА ====================
 function HomePage({ setPage, onOpenPU }) {
-  const { user, canUpload, canManageUsers, canApprove, isSueAdmin, isEskAdmin, isOksAdmin } = useAuth()
+  const { canUpload, canManageUsers, canApprove, isSueAdmin, isEskAdmin, isOksAdmin } = useAuth()
   const [stats, setStats] = useState(null)
   const [error, setError] = useState(null)
 
-  useEffect(() => { 
+  useEffect(() => {
     api.get('/pu/dashboard')
       .then(r => setStats(r.data))
       .catch(err => {
@@ -519,61 +556,219 @@ function HomePage({ setPage, onOpenPU }) {
   }, [])
 
   if (error) {
-    return <div className="p-4 bg-red-100 text-red-700 rounded">Ошибка: {error}</div>
+    return <div className="p-4 bg-rose-50 border border-rose-200 text-[#BA0401] rounded-2xl">Ошибка: {error}</div>
   }
 
   const shortcuts = [
-    { id: 'pu', icon: 'package', label: 'Приборы учёта', desc: 'Просмотр и управление', show: true },
-    { id: 'upload', icon: 'upload', label: 'Загрузить реестр', desc: 'Импорт из Excel', show: canUpload },
-    { id: 'approval', icon: 'checkCircle', label: 'Согласование', desc: 'СМР от ЭСК и ОКС', show: canApprove },
-    { id: 'tz', icon: 'clipboard', label: 'Тех. задания', desc: 'Формирование ТЗ', show: isSueAdmin || isOksAdmin },
-    { id: 'requests', icon: 'fileEdit', label: 'Заявки ЭСК', desc: 'Реестр заявок', show: isSueAdmin || isOksAdmin },
-    { id: 'settings', icon: 'settings', label: 'Настройки', desc: 'Справочники и доступ', show: canManageUsers || isEskAdmin || isOksAdmin },
-  ].filter(s => s.show)
+    { id: 'pu', icon: 'gauge', label: 'Приборы учёта', show: true },
+    { id: 'tz', icon: 'fileText', label: 'Тех. задания', show: isSueAdmin || isOksAdmin },
+    { id: 'requests', icon: 'fileEdit', label: 'Заявки ЭСК', show: isSueAdmin || isOksAdmin },
+    { id: 'upload', icon: 'upload', label: 'Загрузить реестр', show: canUpload },
+    { id: 'approval', icon: 'layers', label: 'Согласование', show: canApprove },
+    { id: 'settings', icon: 'settings', label: 'Настройки', show: canManageUsers || isEskAdmin || isOksAdmin },
+  ].filter(s => s.show).slice(0, 3)
+
+  const all = stats?.all || {}
+  const share = (part, total) => total ? part / total * 100 : 0
+  const installedShare = share(all.installed || 0, all.total || 0)
+  // Разбивка по подразделениям — те же права, что раньше были у блоков остатков.
+  const divisions = [
+    { key: 'res', title: 'РЭС', data: stats?.res, show: isSueAdmin },
+    { key: 'esk', title: 'ЭСК', data: stats?.esk, show: isSueAdmin || isEskAdmin },
+    { key: 'oks', title: 'ОКС', data: stats?.oks, show: isSueAdmin || isOksAdmin },
+  ].filter(d => d.show && d.data)
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl px-5 py-3.5 text-white bg-gradient-to-r from-[#0B4DA2] to-[#1565C0] shadow-sm">
-        <h1 className="text-lg font-semibold">Добро пожаловать, {user?.full_name}!</h1>
-        <p className="text-blue-100/90 text-xs mt-0.5">{user?.unit_name} • {user?.role_name}</p>
+    <div className="space-y-5 lg:space-y-6 max-w-[1400px]">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight">Сводка по приборам учёта</h1>
+          <p className="text-[#6E91B7] font-semibold mt-1">Остатки, установка и согласование СМР</p>
+        </div>
+        <div className="flex gap-2.5 flex-wrap">
+          {canUpload && <button onClick={() => setPage('upload')} className={`${btn.primary} py-2.5`}><Icon name="upload" className="w-5 h-5" /> Загрузить реестр</button>}
+          <button onClick={() => setPage('pu')} className={`${btn.secondary} py-2.5`}><Icon name="fileText" className="w-5 h-5" /> Открыть реестр</button>
+        </div>
       </div>
 
-      {stats && (
-        <div className="space-y-4">
-          {isSueAdmin && <StatGroup icon="chart" title="Все подразделения" data={stats.all} unitType="all" onPick={onOpenPU} />}
-          {isSueAdmin && <StatGroup icon="building" title="РЭС (РСК)" data={stats.res} unitType="res" onPick={onOpenPU} />}
-          {(isSueAdmin || isEskAdmin) && <StatGroup icon="zap" title="ЭСК" data={stats.esk} unitType="esk" onPick={onOpenPU} />}
-          {(isSueAdmin || isOksAdmin) && <StatGroup icon="crane" title="ОКС" data={stats.oks} unitType="oks" onPick={onOpenPU} />}
+      {!stats ? <div className="py-16"><RossetiLoader /></div> : <>
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-4">
+          <KpiTile tone="navy" title="Всего ПУ" value={all.total} icon="gauge" ring={100}
+            onClick={() => onOpenPU({ unitType: 'all', status: '', filter: 'all' })} />
+          <KpiTile tone="green" title="Установлено" value={all.installed} ring={installedShare} ringLabel={fmtPct(installedShare)}
+            onClick={() => onOpenPU({ unitType: 'all', status: '', filter: 'done' })} />
+          <KpiTile tone="aqua" title="На складе" value={all.sklad} icon="warehouse" ring={share(all.sklad || 0, all.total || 0)}
+            onClick={() => onOpenPU({ unitType: 'all', status: 'SKLAD', filter: 'all' })} />
+          {canApprove
+            ? <KpiTile tone="yellow" title="На согласовании" value={stats.pending_approval} note="СМР от ЭСК и ОКС" icon="clipboard" ring={stats.pending_approval ? 70 : 0}
+                onClick={() => setPage('approval')} />
+            : <KpiTile tone="yellow" title="Техприс" value={all.techpris} icon="plug" ring={share(all.techpris || 0, all.total || 0)}
+                onClick={() => onOpenPU({ unitType: 'all', status: 'TECHPRIS', filter: 'all' })} />}
         </div>
-      )}
-      {stats?.pending_approval > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-amber-100 text-amber-600 shrink-0"><Icon name="bell" className="w-5 h-5" /></span>
-            <div>
-              <span className="text-amber-800 font-medium">На согласовании: {stats.pending_approval}</span>
-              <p className="text-amber-700/80 text-sm">Требуется проверка СМР от ЭСК / ОКС</p>
-            </div>
-          </div>
-          <button onClick={() => setPage('approval')} className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium whitespace-nowrap transition-colors">Перейти</button>
-        </div>
-      )}
 
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Быстрый доступ</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {shortcuts.map(s => (
-            <button key={s.id} onClick={() => setPage(s.id)} className="group bg-white p-4 lg:p-5 rounded-xl border border-slate-200 hover:border-[#0B4DA2]/40 hover:shadow-md text-left transition">
-              <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-[#0B4DA2]/8 text-[#0B4DA2] mb-3 group-hover:bg-[#0B4DA2] group-hover:text-white transition-colors">
-                <Icon name={s.icon} className="w-5 h-5" />
-              </span>
-              <div className="font-semibold text-slate-900">{s.label}</div>
-              <div className="text-sm text-slate-500">{s.desc}</div>
+        <div className={`grid gap-4 ${divisions.length ? 'xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]' : ''}`}>
+          <StatusDonut data={all} onPick={status => onOpenPU({ unitType: 'all', status, filter: 'all' })} />
+          {divisions.length > 0 && <DivisionTable rows={divisions} onPick={unitType => onOpenPU({ unitType, status: '', filter: 'all' })} />}
+        </div>
+
+        {shortcuts.length > 0 && (
+          <section className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4 lg:p-5">
+            <h2 className="text-lg lg:text-xl font-bold text-[#0A212F] mb-3">Быстрый доступ</h2>
+            <div className="grid sm:grid-cols-3 gap-3">
+              {shortcuts.map(s => (
+                <button key={s.id} onClick={() => setPage(s.id)} className="group flex items-center gap-3 p-3 rounded-2xl bg-[#F2F6FA] hover:bg-[#E8F0F7] border border-transparent hover:border-[#CFDFEF] text-left transition">
+                  <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-[#D5F0E8] text-[#19636D] shrink-0"><Icon name={s.icon} className="w-5 h-5" /></span>
+                  <span className="flex-1 font-semibold text-[#0A212F]">{s.label}</span>
+                  <Icon name="chevronRight" className="w-5 h-5 text-[#52657A] group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {stats.pending_approval > 0 && (
+          <div className="rounded-2xl bg-[#E6E9DE]/70 border border-[#E6E9DE] px-3 py-3 lg:px-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <span className="min-w-[52px] h-11 px-2 rounded-xl bg-[#DBB13B] text-[#0A212F] text-xl font-extrabold flex items-center justify-center tabular-nums">{stats.pending_approval}</span>
+              <span className="w-px h-8 bg-[#52657A]/25 hidden sm:block" />
+              <span className="font-bold text-[#0A212F] lg:text-lg">СМР от ЭСК и ОКС ждут проверки</span>
+            </div>
+            <button onClick={() => setPage('approval')} className={btn.primary}>К согласованию <Icon name="arrowRight" className="w-4 h-4" /></button>
+          </div>
+        )}
+      </>}
+    </div>
+  )
+}
+
+const fmtNum = n => (n || 0).toLocaleString('ru-RU')
+const fmtPct = p => `${(Math.round(p * 10) / 10).toLocaleString('ru-RU')}%`
+
+// Кольцевой индикатор доли (0–100) в плитке сводки
+function Ring({ value = 0, color, track, children, size = 76 }) {
+  const r = 30, c = 2 * Math.PI * r, v = Math.max(0, Math.min(100, value))
+  return (
+    <span className="relative inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+      <svg viewBox="0 0 72 72" className="absolute inset-0 w-full h-full -rotate-90" aria-hidden="true">
+        <circle cx="36" cy="36" r={r} fill="none" stroke={track} strokeWidth="7" />
+        <circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="7" strokeLinecap="round"
+          strokeDasharray={`${c * v / 100} ${c}`} style={{ transition: 'stroke-dasharray .8s cubic-bezier(.22,.7,.25,1)' }} />
+      </svg>
+      <span className="relative">{children}</span>
+    </span>
+  )
+}
+
+const KPI_TONES = {
+  navy:   { box: 'bg-gradient-to-br from-[#304B78] to-[#142B49] text-white', ring: '#71B6BB', track: 'rgba(255,255,255,.14)', ico: 'text-white/85' },
+  green:  { box: 'bg-gradient-to-br from-[#8ED8C3] to-[#56BDA2] text-[#0A212F]', ring: '#19636D', track: 'rgba(255,255,255,.45)', ico: 'text-[#0A212F]' },
+  aqua:   { box: 'bg-gradient-to-br from-[#A9D8DC] to-[#71B6BB] text-[#0A212F]', ring: '#19636D', track: 'rgba(255,255,255,.5)', ico: 'text-[#13434A]' },
+  yellow: { box: 'bg-gradient-to-br from-[#F1DC97] to-[#DBB13B] text-[#0A212F]', ring: '#86621B', track: 'rgba(255,255,255,.45)', ico: 'text-[#5A421A]' },
+}
+
+function KpiTile({ tone, title, value, note, icon, ring, ringLabel, onClick }) {
+  const t = KPI_TONES[tone]
+  return (
+    <button onClick={onClick} className={`group relative rounded-3xl p-4 lg:p-5 text-left flex items-center gap-3 shadow-md shadow-[#142B49]/10 hover:-translate-y-0.5 hover:shadow-lg transition animate-rise-in overflow-hidden ${t.box}`}>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm lg:text-[17px] font-bold leading-tight">{title}</div>
+        <div className="text-3xl lg:text-[44px] font-extrabold tracking-tight leading-none mt-2 tabular-nums">{fmtNum(value)}</div>
+        {note && <div className="text-xs lg:text-sm font-semibold mt-1.5 opacity-85">{note}</div>}
+      </div>
+      <span className="hidden sm:inline-flex">
+        <Ring value={ring} color={t.ring} track={t.track}>
+          {ringLabel ? <span className="text-[13px] font-extrabold tabular-nums">{ringLabel}</span> : <Icon name={icon} className={`w-7 h-7 ${t.ico}`} />}
+        </Ring>
+      </span>
+    </button>
+  )
+}
+
+// Состояние приборов: кольцевая диаграмма по статусам + легенда (клик — список ПУ)
+function StatusDonut({ data, onPick }) {
+  const parts = [
+    { status: 'TECHPRIS', label: 'Техприс', value: data.techpris || 0, color: '#56BDA2' },
+    { status: 'ZAMENA',   label: 'Замена',  value: data.zamena || 0,   color: '#2494A2' },
+    { status: 'IZHC',     label: 'ИЖЦ',     value: data.izhc || 0,     color: '#2D325A' },
+    { status: 'SKLAD',    label: 'На складе', value: data.sklad || 0,  color: '#A9D8DC' },
+  ]
+  const total = data.total || 0
+  const r = 70, c = 2 * Math.PI * r
+  let offset = 0
+  return (
+    <section className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4 lg:p-6">
+      <h2 className="text-lg lg:text-xl font-bold text-[#0A212F] mb-4">Состояние приборов</h2>
+      <div className="flex flex-col sm:flex-row items-center gap-5 lg:gap-7">
+        <span className="relative w-44 h-44 shrink-0">
+          <svg viewBox="0 0 180 180" className="w-full h-full -rotate-90" aria-hidden="true">
+            <circle cx="90" cy="90" r={r} fill="none" stroke="#E8EEF4" strokeWidth="26" />
+            {total > 0 && parts.map(p => {
+              const len = c * p.value / total
+              const el = <circle key={p.status} cx="90" cy="90" r={r} fill="none" stroke={p.color} strokeWidth="26"
+                strokeDasharray={`${len} ${c}`} strokeDashoffset={-offset} style={{ transition: 'stroke-dasharray .8s ease' }} />
+              offset += len
+              return el
+            })}
+          </svg>
+          <span className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-[28px] font-extrabold text-[#0A212F] tabular-nums leading-none">{fmtPct(total ? (data.installed || 0) / total * 100 : 0)}</span>
+            <span className="text-sm text-[#52657A] mt-1">установлено</span>
+          </span>
+        </span>
+        <div className="flex-1 w-full">
+          <div className="flex items-center justify-between py-1.5 font-bold text-[#0A212F]">
+            <span>Установлено</span><span className="tabular-nums">{fmtNum(data.installed)}</span>
+          </div>
+          {parts.map(p => (
+            <button key={p.status} onClick={() => onPick(p.status)} className="w-full flex items-center gap-2.5 py-1.5 px-1 -mx-1 rounded-lg hover:bg-[#F2F6FA] text-left transition-colors">
+              <span className="w-3.5 h-3.5 rounded-[5px] shrink-0" style={{ background: p.color }} />
+              <span className="flex-1 text-[#0A212F]">{p.label}</span>
+              <span className="font-bold tabular-nums text-[#0A212F]">{fmtNum(p.value)}</span>
             </button>
           ))}
+          <div className="flex items-center justify-between border-t border-[#E8EEF4] mt-2 pt-2.5 text-[#0A212F]">
+            <span>Всего приборов учёта</span><span className="font-extrabold text-lg tabular-nums">{fmtNum(total)}</span>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
+  )
+}
+
+// По подразделениям: доля установленных + разбивка по статусам (клик — список ПУ)
+function DivisionTable({ rows, onPick }) {
+  const cols = [['total', 'Всего'], ['installed', 'Установлено'], ['sklad', 'На складе'], ['techpris', 'Техприс'], ['zamena', 'Замена'], ['izhc', 'ИЖЦ']]
+  return (
+    <section className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4 lg:p-6 min-w-0">
+      <h2 className="text-lg lg:text-xl font-bold text-[#0A212F] mb-4">По подразделениям</h2>
+      <div className="overflow-x-auto -mx-1 px-1">
+        <table className="w-full text-sm min-w-[560px]">
+          <thead>
+            <tr className="bg-[#E8F0F7] text-[#0A212F]">
+              <th className="text-left font-semibold px-3 py-2.5 rounded-l-xl">Подразделение</th>
+              {cols.map(([k, l], i) => <th key={k} className={`text-right font-semibold px-2 py-2.5 ${i === cols.length - 1 ? 'rounded-r-xl' : ''}`}>{l}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ key, title, data }) => {
+              const pct = data.total ? data.installed / data.total * 100 : 0
+              return (
+                <tr key={key} onClick={() => onPick(key)} className="border-b border-[#E8EEF4] last:border-0 cursor-pointer hover:bg-[#F2F6FA] transition-colors">
+                  <td className="px-3 py-3">
+                    <div className="font-bold text-[#0A212F]">{title}</div>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className="h-2 flex-1 max-w-[140px] rounded-full bg-[#E8EEF4] overflow-hidden"><span className="block h-full rounded-full bg-[#56BDA2]" style={{ width: `${pct}%` }} /></span>
+                      <span className="text-xs text-[#52657A] tabular-nums">{fmtPct(pct)}</span>
+                    </div>
+                  </td>
+                  {cols.map(([k]) => <td key={k} className="px-2 py-3 text-right tabular-nums text-[#0A212F]">{fmtNum(data[k])}</td>)}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }
 
@@ -595,62 +790,82 @@ function SortHeader({ field, label, sortField, sortDir, onSort }) {
     >
       <div className="flex items-center gap-1">
         <span>{label}</span>
-        <Icon name="chevron" className={`w-3.5 h-3.5 transition-transform ${isActive ? 'text-[#0B4DA2]' : 'text-slate-300'} ${isActive && sortDir === 'asc' ? 'rotate-180' : ''}`} />
+        <Icon name="chevron" className={`w-3.5 h-3.5 transition-transform ${isActive ? 'text-[#304B78]' : 'text-slate-300'} ${isActive && sortDir === 'asc' ? 'rotate-180' : ''}`} />
       </div>
     </th>
   )
 }
 
-function StatCard({ label, value, color = 'blue' }) {
-  const accent = {
-    blue: 'text-[#0B4DA2]', gray: 'text-slate-500', green: 'text-green-600',
-    yellow: 'text-amber-500', purple: 'text-violet-600', emerald: 'text-emerald-600',
+// ==================== ЛИСТ И ДИАЛОГ (вместо модалок) ====================
+// Открытые окна складываются в стек: Esc закрывает только верхнее.
+const overlayStack = []
+function useOverlay(close) {
+  const ref = useRef(close); ref.current = close
+  useEffect(() => {
+    const id = {}
+    overlayStack.push(id)
+    const onKey = (e) => { if (e.key === 'Escape' && overlayStack[overlayStack.length - 1] === id) ref.current?.() }
+    window.addEventListener('keydown', onKey)
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      overlayStack.splice(overlayStack.indexOf(id), 1)
+      if (!overlayStack.length) document.body.style.overflow = overflow
+    }
+  }, [])
+}
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+// «Лист» — панель, которая въезжает справа поверх раздела (как карточка ПУ в
+// мониторинге напряжения). size: 'wide' — почти на весь экран, 'form' — узкая форма.
+function Sheet({ title, subtitle, icon, actions, onClose, size = 'wide', bodyClassName = 'p-4 lg:p-8', children }) {
+  const [leaving, setLeaving] = useState(false)
+  const closeRef = useRef(onClose); closeRef.current = onClose
+  const close = () => {
+    if (leaving) return
+    if (reducedMotion()) { closeRef.current?.(); return }
+    setLeaving(true)
+    setTimeout(() => closeRef.current?.(), 340)
   }
-  const dot = {
-    blue: 'bg-[#0B4DA2]', gray: 'bg-slate-400', green: 'bg-green-500',
-    yellow: 'bg-amber-400', purple: 'bg-violet-500', emerald: 'bg-emerald-500',
-  }
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-sm hover:border-slate-300 transition">
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className={`w-2 h-2 rounded-full ${dot[color] || dot.blue}`} />
-        <div className="text-xs text-slate-500">{label}</div>
+  useOverlay(close)
+  const width = size === 'form' ? 'sm:w-[560px]' : 'lg:w-[calc(100vw-96px)] xl:max-w-[1500px]'
+  return createPortal(
+    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}>
+      <div className={`absolute inset-0 bg-[#0A0E29]/35 transition-opacity duration-300 ${leaving ? 'opacity-0' : 'animate-fade-in'}`} onClick={close} />
+      <div className={`absolute inset-y-0 right-0 w-full ${width} bg-[#F2F6FA] shadow-[-18px_0_50px_rgba(10,14,41,.22)] sm:rounded-l-[28px] flex flex-col overflow-hidden ${leaving ? 'animate-sheet-out' : 'animate-sheet-in'}`}>
+        <header className="flex items-center gap-3 lg:gap-4 px-4 lg:px-8 py-3.5 lg:py-5 bg-white border-b border-[#CFDFEF] shrink-0">
+          <span className="hidden sm:inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[#E8F0F7] text-[#304B78] shrink-0">
+            <Icon name={icon || 'fileText'} className="w-6 h-6" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg lg:text-2xl font-extrabold text-[#0A212F] tracking-tight leading-tight truncate">{title}</h2>
+            {subtitle && <div className="text-sm text-[#52657A] mt-0.5 truncate">{subtitle}</div>}
+          </div>
+          {actions}
+          <button onClick={close} aria-label="Закрыть" title="Закрыть (Esc)" className="w-11 h-11 rounded-xl border border-[#CFDFEF] text-[#304B78] hover:bg-[#E8F0F7] flex items-center justify-center shrink-0 transition-colors">
+            <Icon name="x" className="w-5 h-5" strokeWidth={2} />
+          </button>
+        </header>
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          <div className={`mx-auto w-full ${size === 'form' ? '' : 'max-w-5xl'} ${bodyClassName}`}>{children}</div>
+        </div>
       </div>
-      <div className={`text-2xl font-bold tabular-nums ${accent[color] || accent.blue}`}>{value}</div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
-// Группа остатков подразделения: заголовок + сетка компактных кликабельных карточек.
-// Клик по карточке открывает список ПУ с соответствующими фильтрами.
-function StatGroup({ icon, title, data, unitType, onPick }) {
-  if (!data) return null
-  const metrics = [
-    { key: 'total',     label: 'Всего',       value: data.total || 0,     color: 'text-[#0B4DA2]',  dot: 'bg-[#0B4DA2]', preset: { unitType, status: '',         filter: 'all' } },
-    { key: 'installed', label: 'Установлено', value: data.installed || 0, color: 'text-emerald-600', dot: 'bg-emerald-500', preset: { unitType, status: '',       filter: 'done' } },
-    { key: 'sklad',     label: 'На складе',   value: data.sklad || 0,     color: 'text-slate-600',  dot: 'bg-slate-400', preset: { unitType, status: 'SKLAD',    filter: 'all' } },
-    { key: 'techpris',  label: 'Техприс',     value: data.techpris || 0,  color: 'text-green-600',  dot: 'bg-green-500', preset: { unitType, status: 'TECHPRIS', filter: 'all' } },
-    { key: 'zamena',    label: 'Замена',      value: data.zamena || 0,    color: 'text-amber-500',  dot: 'bg-amber-400', preset: { unitType, status: 'ZAMENA',   filter: 'all' } },
-    { key: 'izhc',      label: 'ИЖЦ',         value: data.izhc || 0,      color: 'text-violet-600', dot: 'bg-violet-500', preset: { unitType, status: 'IZHC',     filter: 'all' } },
-  ]
-  return (
-    <div>
-      <h3 className="flex items-center gap-2 text-sm font-medium text-slate-500 mb-2">
-        <Icon name={icon} className="w-4 h-4" /> {title}
-      </h3>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        {metrics.map(m => (
-          <button key={m.key} onClick={() => onPick(m.preset)} title={`Открыть: ${m.label}`}
-            className="bg-white rounded-xl border border-slate-200 p-3 text-left hover:shadow-sm hover:border-[#0B4DA2]/40 active:bg-slate-50 transition">
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${m.dot}`} />
-              <div className="text-[11px] text-slate-500 truncate">{m.label}</div>
-            </div>
-            <div className={`text-xl font-bold tabular-nums ${m.color}`}>{m.value}</div>
-          </button>
-        ))}
-      </div>
-    </div>
+// Компактное подтверждение (удалить, переместить, отклонить): по центру на
+// десктопе, снизу на телефоне.
+function Dialog({ onClose, children }) {
+  useOverlay(onClose)
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-[#0A0E29]/40 animate-fade-in" onClick={onClose} />
+      <div className="relative bg-white w-full sm:max-w-md rounded-t-[28px] sm:rounded-[28px] p-5 lg:p-6 shadow-2xl max-h-[90vh] overflow-y-auto animate-rise-in">{children}</div>
+    </div>,
+    document.body
   )
 }
 
@@ -905,7 +1120,7 @@ function PUListPage({ filter = 'all', preset = null }) {
       <button onClick={load} aria-label="Обновить" className="h-11 w-11 shrink-0 grid place-items-center bg-gray-100 rounded-lg"><Icon name="refresh" className="w-5 h-5" /></button>
       <button onClick={() => setFiltersOpen(true)} className="relative h-11 shrink-0 px-3 flex items-center gap-1 bg-white border rounded-lg text-sm">
         <Icon name="settings" className="w-4 h-4" /> Фильтры
-        {activeFilters > 0 && <span className="ml-0.5 min-w-5 h-5 px-1 grid place-items-center bg-[#0B4DA2] text-white text-xs rounded-full">{activeFilters}</span>}
+        {activeFilters > 0 && <span className="ml-0.5 min-w-5 h-5 px-1 grid place-items-center bg-[#304B78] text-white text-xs rounded-full">{activeFilters}</span>}
       </button>
     </div>
 
@@ -1188,7 +1403,7 @@ function PUListPage({ filter = 'all', preset = null }) {
             <div className="flex gap-2 pt-1">
               <button onClick={() => { setStatus(''); setUnitFilter(''); setUnitTypeFilter('all'); setContractSearch(''); setLsSearch(''); setPage(1) }}
                 className="h-12 px-4 bg-gray-100 rounded-lg text-sm">Сбросить</button>
-              <button onClick={() => setFiltersOpen(false)} className="flex-1 h-12 bg-[#0B4DA2] text-white rounded-lg font-medium">Применить</button>
+              <button onClick={() => setFiltersOpen(false)} className="flex-1 h-12 bg-[#304B78] text-white rounded-lg font-medium">Применить</button>
             </div>
           </div>
         </div>
@@ -1211,8 +1426,7 @@ function MoveModal({ units, onClose, onMove, count }) {
   const [unitId, setUnitId] = useState('')
   const [comment, setComment] = useState('')
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
+    <Dialog onClose={onClose}>
         <h2 className="text-lg font-semibold mb-4">Переместить {count} ПУ</h2>
         <select value={unitId} onChange={e => setUnitId(e.target.value)} className="w-full px-3 py-2 border rounded-lg mb-4">
           <option value="">Выберите подразделение...</option>
@@ -1223,16 +1437,14 @@ function MoveModal({ units, onClose, onMove, count }) {
           <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg">Отмена</button>
           <button onClick={() => unitId && onMove(parseInt(unitId), comment)} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Переместить</button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
 function DeleteModal({ onClose, onDelete, count }) {
   const [code, setCode] = useState('')
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
+    <Dialog onClose={onClose}>
         <h2 className="text-lg font-semibold mb-4 text-red-600"><Icon name="trash" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Удалить {count} ПУ?</h2>
         <p className="text-gray-600 mb-4">Это действие нельзя отменить. Введите код администратора:</p>
         <input type="password" placeholder="Код админа" value={code} onChange={e => setCode(e.target.value)} className="w-full px-3 py-2 border rounded-lg mb-4" />
@@ -1240,8 +1452,7 @@ function DeleteModal({ onClose, onDelete, count }) {
           <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg">Отмена</button>
           <button onClick={() => code && onDelete(code)} className="px-4 py-2 bg-red-600 text-white rounded-lg">Удалить</button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -1259,8 +1470,7 @@ function DeleteWithCodeModal({ title, onClose, onDelete }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
+    <Dialog onClose={onClose}>
         <h2 className="text-lg font-semibold mb-4 text-red-600"><Icon name="trash" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> {title}</h2>
         <p className="text-gray-600 mb-4">Это действие нельзя отменить. Введите код администратора:</p>
         <input 
@@ -1276,8 +1486,7 @@ function DeleteWithCodeModal({ title, onClose, onDelete }) {
             {loading ? 'Удаление...' : 'Удалить'}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -1808,13 +2017,7 @@ const updateMaterialQty = (materialId, qty) => {
   ))
 }
 
-  if (loading) return (
-  <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-    <div className="bg-white rounded-xl p-8">
-      <RossetiLoader />
-    </div>
-  </div>
-)
+  if (loading) return <Sheet icon="gauge" title="Карточка ПУ" onClose={onClose}><div className="py-16"><RossetiLoader /></div></Sheet>
 
     const isEsk = item?.current_unit_type === 'ESK_UNIT' || item?.current_unit_type === 'ESK'
     const isRes = item?.current_unit_type === 'RES'
@@ -1845,15 +2048,8 @@ const updateMaterialQty = (materialId, qty) => {
       ]
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-stretch justify-center z-50 lg:items-center lg:p-4" onClick={onClose}>
-      <div className="pu-card bg-white w-full overflow-y-auto rounded-none max-w-none lg:rounded-xl lg:max-w-2xl lg:max-h-[90vh]" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 z-10 bg-white border-b px-4 lg:px-6 py-3 lg:py-4 flex justify-between items-center gap-2">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold leading-tight">Карточка ПУ</h2>
-            <div className="lg:hidden font-mono text-xs text-gray-500 truncate">{item.serial_number}</div>
-          </div>
-          <button onClick={onClose} aria-label="Закрыть" className="shrink-0 -mr-2 w-11 h-11 grid place-items-center text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
-        </div>
+    <Sheet icon="gauge" title="Карточка ПУ" subtitle={<span className="font-mono">{item.serial_number}</span>} onClose={onClose} bodyClassName="">
+      <div className="pu-card bg-white lg:my-6 lg:rounded-3xl lg:border lg:border-[#CFDFEF] lg:shadow-sm">
 
         <div className="p-4 lg:p-6 space-y-4">
           {/* Основное */}
@@ -2509,7 +2705,7 @@ const updateMaterialQty = (materialId, qty) => {
         </div>
 
         {canEdit && (
-          <div className="sticky bottom-0 z-10 bg-gray-50 border-t px-4 lg:px-6 py-3 lg:py-4 flex justify-end gap-2">
+          <div className="sticky bottom-0 z-10 bg-[#F2F6FA]/95 backdrop-blur border-t border-[#CFDFEF] lg:rounded-b-3xl px-4 lg:px-6 py-3 lg:py-4 flex justify-end gap-2">
             <button onClick={onClose} className="px-4 py-2 min-h-[44px] lg:min-h-0 bg-gray-200 rounded-lg">Отмена</button>
             {(isEsk || isOks) && item.status === 'TECHPRIS' && item.approval_status !== 'APPROVED' && item.approval_status !== 'PENDING' && (
               <button onClick={handleSendApproval} disabled={saving} className="px-4 py-2 min-h-[44px] lg:min-h-0 bg-orange-500 text-white rounded-lg disabled:opacity-50">
@@ -2520,7 +2716,7 @@ const updateMaterialQty = (materialId, qty) => {
           </div>
         )}
       </div>
-    </div>
+    </Sheet>
   )
 }
 
@@ -2768,18 +2964,11 @@ function ReviewModal({ item, onClose, onApprove, onReject }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-          <div>
-            <h2 className="text-lg font-semibold">Рассмотрение карточки ПУ</h2>
-            <p className="text-sm text-gray-500 mt-1">
+    <Sheet icon="layers" title="Рассмотрение карточки ПУ" onClose={onClose} bodyClassName="" subtitle={<>
               <span className={`px-2 py-0.5 rounded-full text-xs font-medium mr-2 ${item.source === 'ОКС' ? 'bg-indigo-100 text-indigo-700' : 'bg-orange-100 text-orange-700'}`}>{item.source || 'ЭСК'}</span>
               <span className="font-mono">{item.serial_number}</span>{item.res_name ? ` · ${item.res_name}` : ''}
-            </p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-        </div>
+            </>}>
+      <div className="bg-white lg:my-6 lg:rounded-3xl lg:border lg:border-[#CFDFEF] lg:shadow-sm">
 
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -2811,7 +3000,7 @@ function ReviewModal({ item, onClose, onApprove, onReject }) {
           )}
         </div>
       </div>
-    </div>
+    </Sheet>
   )
 }
 
@@ -3055,8 +3244,7 @@ function RejectModal({ item, onClose, onReject }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
+    <Dialog onClose={onClose}>
         <h2 className="text-lg font-semibold mb-2">Отклонить ПУ</h2>
         <p className="text-gray-600 text-sm mb-4">Серийный номер: <span className="font-mono">{item.serial_number}</span></p>
         
@@ -3077,8 +3265,7 @@ function RejectModal({ item, onClose, onReject }) {
             {loading ? 'Отклонение...' : 'Отклонить'}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -4811,7 +4998,7 @@ function SettingsPage() {
       {/* Вкладки: на моб. — горизонтальный скролл, на lg — перенос как было */}
       <div className="flex gap-1 border-b border-slate-200 flex-nowrap overflow-x-auto lg:flex-wrap lg:overflow-visible">
         {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2.5 border-b-2 whitespace-nowrap text-sm shrink-0 transition-colors ${tab === t.id ? 'border-[#0B4DA2] text-[#0B4DA2] font-medium' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+          <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2.5 border-b-2 whitespace-nowrap text-sm shrink-0 transition-colors ${tab === t.id ? 'border-[#304B78] text-[#304B78] font-medium' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
             <Icon name={t.icon} className="w-4 h-4" /> {t.label}
           </button>
         ))}
@@ -4941,9 +5128,7 @@ function UsersTab() {
 function UserModal({ user, roles, units, onClose, onSave }) {
   const [form, setForm] = useState({ username: user?.username || '', password: '', full_name: user?.full_name || '', email: user?.email || '', role_id: user?.role?.id || '', unit_id: user?.unit?.id || '' })
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold mb-4">{user ? 'Редактировать' : 'Новый пользователь'}</h2>
+    <Sheet size="form" icon="users" title={user ? 'Редактировать пользователя' : 'Новый пользователь'} onClose={onClose}>
         <div className="space-y-3">
           <input type="text" placeholder="Логин" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100" />
           {!user && <input type="password" placeholder="Пароль" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />}
@@ -4962,8 +5147,7 @@ function UserModal({ user, roles, units, onClose, onSave }) {
           <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg">Отмена</button>
           <button onClick={() => onSave({ ...form, role_id: parseInt(form.role_id), unit_id: form.unit_id ? parseInt(form.unit_id) : null })} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Сохранить</button>
         </div>
-      </div>
-    </div>
+    </Sheet>
   )
 }
 
@@ -5036,12 +5220,9 @@ function MastersTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4">{modal.master ? 'Редактировать' : 'Новый мастер'}</h2>
+        <Sheet size="form" icon="edit" title={modal.master ? 'Редактировать' : 'Новый мастер'} onClose={() => setModal(null)}>
             <MasterForm master={modal.master} units={units} onSave={handleSave} onClose={() => setModal(null)} />
-          </div>
-        </div>
+        </Sheet>
       )}
     </>
   )
@@ -5157,12 +5338,9 @@ function TTRResTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый ТТР'}</h2>
+        <Sheet size="form" icon="edit" title={modal.item ? 'Редактировать' : 'Новый ТТР'} onClose={() => setModal(null)}>
             <TTRResForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} />
-          </div>
-        </div>
+        </Sheet>
       )}
       {materialsModal && (
         <TTRMaterialsModal 
@@ -5269,15 +5447,10 @@ function TTRMaterialsModal({ ttr, onClose }) {
     onClose()
   }
 
-  if (loading) return <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50"><div className="bg-white rounded-xl p-8"><RossetiLoader /></div></div>
+  if (loading) return <Sheet size="form" icon="package" title={`Материалы для ${ttr.code}`} onClose={onClose}><div className="py-16"><RossetiLoader /></div></Sheet>
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-lg max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="font-semibold"><Icon name="package" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Материалы для {ttr.code}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
-        </div>
+    <Sheet size="form" icon="package" title={`Материалы для ${ttr.code}`} onClose={onClose} bodyClassName="">
         
         <div className="p-4 overflow-y-auto max-h-96">
           <table className="w-full text-sm">
@@ -5323,8 +5496,7 @@ function TTRMaterialsModal({ ttr, onClose }) {
           <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg">Отмена</button>
           <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Сохранить</button>
         </div>
-      </div>
-    </div>
+    </Sheet>
   )
 }
 
@@ -5355,15 +5527,10 @@ function TTRPUTypesModal({ ttr, onClose }) {
     onClose()
   }
 
-  if (loading) return <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50"><div className="bg-white rounded-xl p-8"><RossetiLoader /></div></div>
+  if (loading) return <Sheet size="form" icon="package" title={`Типы ПУ для ${ttr.code}`} onClose={onClose}><div className="py-16"><RossetiLoader /></div></Sheet>
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-lg max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="font-semibold"><Icon name="package" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Типы ПУ для {ttr.code}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
-        </div>
+    <Sheet size="form" icon="package" title={`Типы ПУ для ${ttr.code}`} onClose={onClose} bodyClassName="">
         
         <div className="p-4 overflow-y-auto max-h-96">
           {allPUTypes.length === 0 ? (
@@ -5394,8 +5561,7 @@ function TTRPUTypesModal({ ttr, onClose }) {
           <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg">Отмена</button>
           <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Сохранить</button>
         </div>
-      </div>
-    </div>
+    </Sheet>
   )
 }
 
@@ -5514,12 +5680,9 @@ function TTREskTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый ТТР ЭСК'}</h2>
+        <Sheet size="form" icon="edit" title={modal.item ? 'Редактировать' : 'Новый ТТР ЭСК'} onClose={() => setModal(null)}>
             <TTREskForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} />
-          </div>
-        </div>
+        </Sheet>
       )}
 
       {/* <Icon name="arrowLeft" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> ДОБАВЛЕНО: Модалка удаления с паролем */}
@@ -5658,12 +5821,9 @@ function MaterialsTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый материал'}</h2>
+        <Sheet size="form" icon="edit" title={modal.item ? 'Редактировать' : 'Новый материал'} onClose={() => setModal(null)}>
             <MaterialForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} />
-          </div>
-        </div>
+        </Sheet>
       )}
       {deleteModal && (
   <DeleteWithCodeModal
@@ -5753,12 +5913,9 @@ function ContractorsTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый подрядчик'}</h2>
+        <Sheet size="form" icon="edit" title={modal.item ? 'Редактировать' : 'Новый подрядчик'} onClose={() => setModal(null)}>
             <NominalForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} placeholder="Наименование подрядчика" />
-          </div>
-        </div>
+        </Sheet>
       )}
 
       {deleteModal && (
@@ -5840,12 +5997,9 @@ function PUTypesTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый тип ПУ'}</h2>
+        <Sheet size="form" icon="edit" title={modal.item ? 'Редактировать' : 'Новый тип ПУ'} onClose={() => setModal(null)}>
             <PUTypeForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} />
-          </div>
-        </div>
+        </Sheet>
       )}
 
       {deleteModal && (
@@ -5919,12 +6073,9 @@ function VANominalsTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый номинал ВА'}</h2>
+        <Sheet size="form" icon="edit" title={modal.item ? 'Редактировать' : 'Новый номинал ВА'} onClose={() => setModal(null)}>
             <NominalForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} placeholder="Например: 16А, 25А, 32А" />
-          </div>
-        </div>
+        </Sheet>
       )}
 
       {deleteModal && (
@@ -5999,12 +6150,9 @@ function TTNominalsTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4">{modal.item ? 'Редактировать' : 'Новый номинал ТТ'}</h2>
+        <Sheet size="form" icon="edit" title={modal.item ? 'Редактировать' : 'Новый номинал ТТ'} onClose={() => setModal(null)}>
             <NominalForm item={modal.item} onSave={handleSave} onClose={() => setModal(null)} placeholder="Например: 100/5, 200/5, 400/5" />
-          </div>
-        </div>
+        </Sheet>
       )}
 
       {deleteModal && (
@@ -6491,8 +6639,7 @@ function BulkUpdateTab() {
 function ClearDBModal({ onClose, onClear }) {
   const [code, setCode] = useState('')
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl lg:rounded-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto lg:max-h-none" onClick={e => e.stopPropagation()}>
+    <Dialog onClose={onClose}>
         <h2 className="text-lg font-semibold mb-4 text-red-600"><Icon name="alert" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Очистка базы данных</h2>
         <p className="text-gray-600 mb-4">Все ПУ и загрузки будут удалены. Это действие нельзя отменить!</p>
         <input type="password" placeholder="Код администратора" value={code} onChange={e => setCode(e.target.value)} className="w-full px-3 py-2 border rounded-lg mb-4" />
@@ -6500,8 +6647,7 @@ function ClearDBModal({ onClose, onClear }) {
           <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg">Отмена</button>
           <button onClick={() => code && onClear(code)} className="px-4 py-2 bg-red-600 text-white rounded-lg">Очистить</button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
