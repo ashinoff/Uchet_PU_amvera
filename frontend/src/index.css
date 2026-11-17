@@ -8,6 +8,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 
   .animate-sheet-in, .animate-sheet-out, .animate-fade-in, .animate-rise-in { animation: none !important; }
 }
 
+/* ========== Единый стиль кнопок и значков (как на «Сводке») ==========
+   Действует в рабочей области (.app-content) и в листах/диалогах (.svet-overlay);
+   меню и плитки не затрагивает. Кнопка = кнопка с отступами и заливкой (px-/py-/bg-).
+   Отключить для конкретной кнопки — класс .no-cut. */
+:root { --cut: 9px; }
+.cut, .app-content button[class*="px-"][class*="py-"][class*="bg-"]:not(.no-cut),
+.svet-overlay button[class*="px-"][class*="py-"][class*="bg-"]:not(.no-cut) {
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  border-radius: 0 !important;
+}
+.app-content button[class*="px-"][class*="py-"][class*="bg-"]:not(.no-cut),
+.svet-overlay button[class*="px-"][class*="py-"][class*="bg-"]:not(.no-cut) {
+  min-height: 40px; padding-left: 16px; padding-right: 16px; padding-top: 0; padding-bottom: 0;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 14px; font-weight: 600; line-height: 1.15; white-space: nowrap;
+}
+/* Срезанные углы прячут рамку фокуса — показываем фокус затемнением */
+.app-content button.cut:focus-visible, .svet-overlay button.cut:focus-visible,
+.app-content button[class*="px-"][class*="py-"][class*="bg-"]:not(.no-cut):focus-visible,
+.svet-overlay button[class*="px-"][class*="py-"][class*="bg-"]:not(.no-cut):focus-visible { outline: none; filter: brightness(.88); }
+/* Кнопки в ячейках таблиц — на всю ширину ячейки, группы делят её поровну */
+.app-content td > button[class*="px-"]:not(.no-cut),
+.app-content td > div > button[class*="px-"]:not(.no-cut) { width: 100%; flex: 1 1 0; }
+/* Значки статусов и признаков — прямоугольные, в таблицах на всю ширину ячейки */
+.app-content span[class*="rounded-full"][class*="px-"], .svet-overlay span[class*="rounded-full"][class*="px-"] {
+  border-radius: 4px !important; font-weight: 600;
+}
+.app-content td > span[class*="rounded-full"][class*="px-"], .svet-overlay td > span[class*="rounded-full"][class*="px-"] {
+  display: block; width: 100%; min-width: 96px; text-align: center; padding-top: 4px; padding-bottom: 4px; white-space: nowrap;
+}
+
 /* ========== Анимация загрузки РОССЕТИ ========== */
 .rosseti-letter {
   color: #cbd5e1;

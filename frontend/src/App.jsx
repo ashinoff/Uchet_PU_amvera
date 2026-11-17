@@ -160,20 +160,20 @@ const BRAND_DARK = '#142B49'   // тёмно-синий «Учёт»
 
 // Единые стили кнопок (используются по всему интерфейсу)
 const btn = {
-  primary: "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#56BDA2] text-[#0A212F] text-sm font-semibold shadow-sm shadow-[#56BDA2]/30 hover:bg-[#4aae94] active:bg-[#3FA88D] disabled:opacity-50 disabled:pointer-events-none transition-colors",
-  secondary: "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white text-[#0A212F] text-sm font-medium border border-slate-200 hover:bg-[#E8F0F7] hover:border-[#CFDFEF] disabled:opacity-50 transition-colors",
-  success: "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#56BDA2] text-[#0A212F] text-sm font-semibold shadow-sm hover:bg-[#4aae94] disabled:opacity-50 transition-colors",
-  danger: "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#BA0401] text-white text-sm font-semibold shadow-sm hover:bg-[#9A0301] disabled:opacity-50 transition-colors",
-  ghost: "inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-slate-600 text-sm font-medium hover:bg-[#E8F0F7] transition-colors",
+  primary: "cut inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#56BDA2] text-[#0A212F] text-sm font-semibold hover:bg-[#4aae94] active:bg-[#3FA88D] disabled:opacity-50 disabled:pointer-events-none transition-colors",
+  secondary: "cut inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#E8F0F7] text-[#142B49] text-sm font-semibold hover:bg-[#CFDFEF] disabled:opacity-50 transition-colors",
+  success: "cut inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#56BDA2] text-[#0A212F] text-sm font-semibold hover:bg-[#4aae94] disabled:opacity-50 transition-colors",
+  danger: "cut inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#BA0401] text-white text-sm font-semibold hover:bg-[#9A0301] disabled:opacity-50 transition-colors",
+  ghost: "cut inline-flex items-center justify-center gap-2 px-3 py-2 bg-transparent text-slate-600 text-sm font-medium hover:bg-[#E8F0F7] transition-colors",
 }
 
 // Кнопки действий согласования: одна форма, смысловые цвета палитры.
 const actBtn = {
-  base: 'inline-flex items-center justify-center gap-1.5 px-3.5 h-9 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none',
-  review: 'bg-[#304B78] text-white shadow-sm hover:bg-[#253D65] active:bg-[#142B49]',
-  approve: 'bg-[#56BDA2] text-[#0A212F] shadow-sm shadow-[#56BDA2]/30 hover:bg-[#4aae94] active:bg-[#3FA88D]',
-  reject: 'bg-white text-[#BA0401] border border-[#F4A9A7] hover:bg-[#BA0401] hover:text-white hover:border-[#BA0401]',
-  neutral: 'bg-white text-[#0A212F] border border-[#CFDFEF] hover:bg-[#E8F0F7]',
+  base: 'cut inline-flex items-center justify-center gap-1.5 px-4 h-10 text-sm font-semibold whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none',
+  review: 'bg-[#304B78] text-white hover:bg-[#253D65] active:bg-[#142B49]',
+  approve: 'bg-[#56BDA2] text-[#0A212F] hover:bg-[#4aae94] active:bg-[#3FA88D]',
+  reject: 'bg-[#FDEDEC] text-[#BA0401] hover:bg-[#BA0401] hover:text-white',
+  neutral: 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]',
 }
 
 // Набор SVG-иконок (тонкая линия, наследует currentColor). Заменяют эмодзи.
@@ -348,7 +348,7 @@ function Main() {
 
       <div className="flex-1 lg:ml-72 min-w-0">
         <Header page={page} />
-        <div key={page} className="p-3 sm:p-4 lg:px-8 lg:py-6 pb-24 lg:pb-8 animate-fade-in">
+        <div key={page} className="app-content p-3 sm:p-4 lg:px-8 lg:py-6 pb-24 lg:pb-8 animate-fade-in">
           {page === 'home' && <HomePage setPage={go} onOpenPU={openPU} />}
           {page === 'pu' && <PUListPage filter="all" preset={puPreset} />}
           {page === 'pu-sklad' && <PUListPage filter="sklad" />}
@@ -673,13 +673,16 @@ const KPI_TONES = {
   navy:   { box: 'bg-gradient-to-br from-[#304B78] to-[#142B49] text-white', ring: '#71B6BB', track: 'rgba(255,255,255,.14)', ico: 'text-white/85' },
   green:  { box: 'bg-gradient-to-br from-[#8ED8C3] to-[#56BDA2] text-[#0A212F]', ring: '#19636D', track: 'rgba(255,255,255,.45)', ico: 'text-[#0A212F]' },
   aqua:   { box: 'bg-gradient-to-br from-[#A9D8DC] to-[#71B6BB] text-[#0A212F]', ring: '#19636D', track: 'rgba(255,255,255,.5)', ico: 'text-[#13434A]' },
+  teal:   { box: 'bg-gradient-to-br from-[#45A3AE] to-[#1D7A86] text-white', ring: '#D2ECEE', track: 'rgba(255,255,255,.2)', ico: 'text-white/85' },
   yellow: { box: 'bg-gradient-to-br from-[#F1DC97] to-[#DBB13B] text-[#0A212F]', ring: '#86621B', track: 'rgba(255,255,255,.45)', ico: 'text-[#5A421A]' },
 }
 
-function KpiTile({ tone, title, value, note, icon, ring, ringLabel, onClick }) {
+// active — плитка-переключатель (анализ остатков): выбранная обведена, остальные приглушены.
+function KpiTile({ tone, title, value, note, icon, ring, ringLabel, onClick, active }) {
   const t = KPI_TONES[tone]
+  const state = active === undefined ? '' : active ? 'ring-4 ring-[#56BDA2] ring-offset-2 ring-offset-[#F2F6FA]' : 'opacity-75 hover:opacity-100'
   return (
-    <button onClick={onClick} className={`group relative rounded-3xl p-4 lg:p-5 text-left flex items-center gap-3 shadow-md shadow-[#142B49]/10 hover:-translate-y-0.5 hover:shadow-lg transition animate-rise-in overflow-hidden ${t.box}`}>
+    <button onClick={onClick} aria-pressed={active} className={`group relative rounded-3xl p-4 lg:p-5 text-left flex items-center gap-3 shadow-md shadow-[#142B49]/10 hover:-translate-y-0.5 hover:shadow-lg transition animate-rise-in overflow-hidden ${t.box} ${state}`}>
       <div className="flex-1 min-w-0">
         <div className="text-sm lg:text-[17px] font-bold leading-tight">{title}</div>
         <div className="text-3xl lg:text-[44px] font-extrabold tracking-tight leading-none mt-2 tabular-nums">{fmtNum(value)}</div>
@@ -730,7 +733,7 @@ function StatusDonut({ data, onPick }) {
             <span>Установлено</span><span className="tabular-nums">{fmtNum(data.installed)}</span>
           </div>
           {parts.map(p => (
-            <button key={p.status} onClick={() => onPick(p.status)} className="w-full flex items-center gap-2.5 py-1.5 px-1 -mx-1 rounded-lg hover:bg-[#F2F6FA] text-left transition-colors">
+            <button key={p.status} onClick={() => onPick(p.status)} className="no-cut w-full flex items-center gap-2.5 py-1.5 px-1 -mx-1 rounded-lg hover:bg-[#F2F6FA] text-left transition-colors">
               <span className="w-3.5 h-3.5 rounded-[5px] shrink-0" style={{ background: p.color }} />
               <span className="flex-1 text-[#0A212F]">{p.label}</span>
               <span className="font-bold tabular-nums text-[#0A212F]">{fmtNum(p.value)}</span>
@@ -843,7 +846,7 @@ function Sheet({ title, subtitle, icon, actions, onClose, size = 'wide', fill = 
   // меню остаётся видимым и рабочим.
   const width = size === 'form' ? 'sm:w-[560px]' : ''
   return createPortal(
-    <div className="fixed inset-0 lg:left-72 z-[60]" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}>
+    <div className="svet-overlay fixed inset-0 lg:left-72 z-[60]" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}>
       <div className={`absolute inset-0 bg-[#0A0E29]/35 transition-opacity duration-300 ${leaving ? 'opacity-0' : 'animate-fade-in'}`} onClick={close} />
       <div className={`absolute inset-y-0 right-0 w-full ${width} bg-[#F2F6FA] shadow-[-18px_0_50px_rgba(10,14,41,.22)] sm:rounded-l-[28px] flex flex-col overflow-hidden ${leaving ? 'animate-sheet-out' : 'animate-sheet-in'}`}>
         <header className="flex items-center gap-3 lg:gap-4 px-4 lg:px-8 py-3.5 lg:py-5 bg-white border-b border-[#CFDFEF] shrink-0">
@@ -873,7 +876,7 @@ function Sheet({ title, subtitle, icon, actions, onClose, size = 'wide', fill = 
 function Dialog({ onClose, children }) {
   useOverlay(onClose)
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-4" role="dialog" aria-modal="true">
+    <div className="svet-overlay fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-[#0A0E29]/40 animate-fade-in" onClick={onClose} />
       <div className="relative bg-white w-full sm:max-w-md rounded-t-[28px] sm:rounded-[28px] p-5 lg:p-6 shadow-2xl max-h-[90vh] overflow-y-auto animate-rise-in">{children}</div>
     </div>,
@@ -1102,7 +1105,7 @@ function PUListPage({ filter = 'all', preset = null }) {
   <div className="space-y-4">
     <div className="flex justify-between items-center gap-2">
       <div>
-        <h1 className="text-xl lg:text-2xl font-bold">
+        <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight">
           {dynFilter === 'all' && 'Все приборы учёта'}
           {dynFilter === 'sklad' && 'Склад'}
           {dynFilter === 'done' && 'Завершённые СМР'}
@@ -1137,7 +1140,7 @@ function PUListPage({ filter = 'all', preset = null }) {
     </div>
 
       {/* Панель фильтров: на десктопе как была; на мобильном — в bottom-sheet */}
-      <div className="hidden lg:block bg-white rounded-xl border p-4 space-y-3">
+      <div className="hidden lg:block bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4 space-y-3">
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-48">
   <input 
@@ -1231,10 +1234,10 @@ function PUListPage({ filter = 'all', preset = null }) {
         </div>
       )}
 
-      <div className="hidden lg:block bg-white rounded-xl border overflow-x-auto">
+      <div className="hidden lg:block bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-x-auto">
         {loading ? <div className="p-8"><RossetiLoader /></div> : (
           <table className="w-full text-sm min-w-[820px]">
-            <thead className="bg-gray-50">
+            <thead className="bg-[#E8F0F7] text-[#0A212F]">
               <tr>
                 {canMove && <th className="w-10 px-4 py-3"><input type="checkbox" onChange={e => setSelected(e.target.checked ? items.map(i => i.id) : [])} checked={selected.length === items.length && items.length > 0} /></th>}
                 <SortHeader field="serial_number" label="Серийный номер" sortField={sortField} sortDir={sortDir} onSort={(f, d) => { setSortField(f); setSortDir(d); setPage(1) }} />
@@ -1287,9 +1290,9 @@ function PUListPage({ filter = 'all', preset = null }) {
       {/* ── Мобильный список карточек (до lg) ── */}
       <div className="lg:hidden">
         {loading ? (
-          <div className="p-8 bg-white rounded-xl border"><RossetiLoader /></div>
+          <div className="p-8 bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm"><RossetiLoader /></div>
         ) : items.length === 0 ? (
-          <div className="p-8 text-center text-gray-400 bg-white rounded-xl border">Ничего не найдено</div>
+          <div className="p-8 text-center text-gray-400 bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm">Ничего не найдено</div>
         ) : (
           <div className="space-y-2">
             {items.map(i => {
@@ -1297,7 +1300,7 @@ function PUListPage({ filter = 'all', preset = null }) {
               const date = i.uploaded_at ? new Date(i.uploaded_at).toLocaleDateString('ru') : null
               return (
                 <div key={i.id} onClick={() => setCardModal(i.id)}
-                  className="bg-white rounded-xl border border-slate-200 p-3 active:bg-slate-50">
+                  className="bg-white rounded-2xl border border-[#CFDFEF]/70 shadow-sm p-3 active:bg-slate-50">
                   <div className="flex items-start gap-2.5">
                     {canMove && (
                       <input type="checkbox" className="mt-1 w-5 h-5 shrink-0"
@@ -2594,7 +2597,7 @@ const updateMaterialQty = (materialId, qty) => {
     ) : (
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-[#E8F0F7] text-[#0A212F]">
             <tr>
               <th className="w-10 px-3 py-2"></th>
               <th className="px-3 py-2 text-left">Материал</th>
@@ -2791,9 +2794,9 @@ function UploadPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl lg:text-2xl font-bold">Загрузка реестра ПУ</h1>
+      <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight">Загрузка реестра ПУ</h1>
 
-      <div className="bg-white rounded-xl border p-6 lg:p-8">
+      <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-6 lg:p-8">
         {result ? (
           <div className="text-center">
             <div className="mb-4 flex justify-center"><span className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-600"><Icon name="checkCircle" className="w-9 h-9" /></span></div>
@@ -2836,9 +2839,9 @@ function UploadPage() {
         <div>
           <h2 className="text-lg font-semibold mb-4">История загрузок</h2>
           {/* Десктоп — таблица (как была) */}
-          <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
+          <div className="hidden lg:block bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left">Файл</th><th className="px-4 py-3 text-left">Кол-во</th><th className="px-4 py-3 text-left">Дата</th></tr></thead>
+              <thead className="bg-[#E8F0F7] text-[#0A212F]"><tr><th className="px-4 py-3 text-left">Файл</th><th className="px-4 py-3 text-left">Кол-во</th><th className="px-4 py-3 text-left">Дата</th></tr></thead>
               <tbody>
                 {registers.map(r => <tr key={r.id} className="border-t"><td className="px-4 py-3">{r.filename}</td><td className="px-4 py-3">{r.items_count}</td><td className="px-4 py-3 text-gray-500">{new Date(r.uploaded_at).toLocaleString('ru')}</td></tr>)}
               </tbody>
@@ -2847,7 +2850,7 @@ function UploadPage() {
           {/* Мобильный — карточки */}
           <div className="lg:hidden space-y-2">
             {registers.map(r => (
-              <div key={r.id} className="bg-white rounded-xl border p-3">
+              <div key={r.id} className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-3">
                 <div className="font-medium text-slate-800 break-words">{r.filename}</div>
                 <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
                   <span>Загружено: {r.items_count}</span>
@@ -2924,7 +2927,7 @@ function ReviewDetail({ detail, source, loading }) {
             ) : (
               <div className="border rounded-lg overflow-hidden bg-white">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-[#E8F0F7] text-[#0A212F]">
                     <tr>
                       <th className="px-3 py-2 text-left">Материал</th>
                       <th className="px-3 py-2 text-left w-16">Ед.</th>
@@ -3104,7 +3107,7 @@ function ApprovalPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center gap-2">
         <div>
-          <h1 className="text-xl lg:text-2xl font-bold">Согласование СМР</h1>
+          <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight">Согласование СМР</h1>
           <p className="text-gray-500 text-sm lg:text-base">ПУ от ЭСК и ОКС на проверку</p>
         </div>
         {/* Десктоп — кнопки с текстом; моб. — компактные иконки */}
@@ -3119,12 +3122,12 @@ function ApprovalPage() {
       </div>
 
       {/* Десктоп — таблица (как была) */}
-      <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
+      <div className="hidden lg:block bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
         {loading ? <div className="p-8"><RossetiLoader /></div> : items.length === 0 ? (
           <div className="p-8 text-center text-gray-500">Нет ПУ на согласовании</div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-[#E8F0F7] text-[#0A212F]">
               <tr>
                 <th className="w-10 px-2 py-3"></th>
                 <th className="px-3 py-3 text-left">Источник</th>
@@ -3138,7 +3141,7 @@ function ApprovalPage() {
                 <th className="px-3 py-3 text-left">№ ТТР ЭСК</th>
                 <th className="px-3 py-3 text-left">Дата СМР</th>
                 {/* Колонка действий закреплена у правого края — видна без прокрутки таблицы */}
-                <th className="sticky right-0 z-[1] bg-gray-50 px-3 py-3 text-left shadow-[-10px_0_12px_-10px_rgba(10,14,41,.25)]">Действия</th>
+                <th className="sticky right-0 z-[1] bg-gray-50 px-3 py-3 text-left min-w-[280px] shadow-[-10px_0_12px_-10px_rgba(10,14,41,.25)]">Действия</th>
               </tr>
             </thead>
             <tbody>
@@ -3164,11 +3167,11 @@ function ApprovalPage() {
                   <td className="px-3 py-3">{i.smr_date || '—'}</td>
                   <td className="sticky right-0 bg-white px-3 py-3 shadow-[-10px_0_12px_-10px_rgba(10,14,41,.25)]">
                     {i.source === 'ОКС' ? (
-                      <button onClick={() => setReviewModal(i)} className={`${actBtn.base} ${actBtn.review}`}><Icon name="search" className="w-4 h-4" /> Рассмотреть</button>
+                      <button onClick={() => setReviewModal(i)} className={`${actBtn.base} ${actBtn.review} w-full`}><Icon name="search" className="w-4 h-4" /> Рассмотреть</button>
                     ) : (
                       <div className="flex gap-2">
-                        <button onClick={() => handleApprove(i.id)} className={`${actBtn.base} ${actBtn.approve}`}><Icon name="check" className="w-4 h-4" strokeWidth={2.2} /> Согласовать</button>
-                        <button onClick={() => setRejectModal(i)} className={`${actBtn.base} ${actBtn.reject}`}><Icon name="x" className="w-4 h-4" strokeWidth={2.2} /> Отклонить</button>
+                        <button onClick={() => handleApprove(i.id)} className={`${actBtn.base} ${actBtn.approve} flex-1`}><Icon name="check" className="w-4 h-4" strokeWidth={2.2} /> Согласовать</button>
+                        <button onClick={() => setRejectModal(i)} className={`${actBtn.base} ${actBtn.reject} flex-1`}><Icon name="x" className="w-4 h-4" strokeWidth={2.2} /> Отклонить</button>
                       </div>
                     )}
                   </td>
@@ -3190,13 +3193,13 @@ function ApprovalPage() {
       {/* Мобильный — карточки с крупными кнопками */}
       <div className="lg:hidden">
         {loading ? (
-          <div className="p-8 bg-white rounded-xl border"><RossetiLoader /></div>
+          <div className="p-8 bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm"><RossetiLoader /></div>
         ) : items.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 bg-white rounded-xl border">Нет ПУ на согласовании</div>
+          <div className="p-8 text-center text-gray-500 bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm">Нет ПУ на согласовании</div>
         ) : (
           <div className="space-y-2">
             {items.map(i => (
-              <div key={i.id} className="bg-white rounded-xl border p-3">
+              <div key={i.id} className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-3">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-semibold text-base text-slate-900 truncate">{i.serial_number}</span>
                   <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${i.source === 'ОКС' ? 'bg-indigo-100 text-indigo-700' : 'bg-orange-100 text-orange-700'}`}>{i.source || 'ЭСК'}</span>
@@ -3669,7 +3672,7 @@ const saveAllMaterials = async () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Технические задания</h1>
+      <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight">Технические задания</h1>
 
       <div className="flex gap-2 border-b">
         <button onClick={() => { setTab('list'); setStep(1) }} className={`px-4 py-2 border-b-2 ${tab === 'list' ? 'border-blue-600 text-blue-600' : 'border-transparent'}`}><Icon name="clipboard" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Реестр ТЗ</button>
@@ -3696,7 +3699,7 @@ const saveAllMaterials = async () => {
         return (
         <div className="space-y-3">
           {/* Панель фильтров */}
-          <div className="bg-white rounded-xl border p-4">
+          <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4">
             <div className="flex flex-wrap gap-3 items-center">
               <span className="text-sm text-gray-500 font-medium">Фильтры:</span>
               <select value={tzFilterType} onChange={e => { setTzFilterType(e.target.value); setTzFilterTz('') }} className="px-3 py-2 border rounded-lg text-sm">
@@ -3719,12 +3722,12 @@ const saveAllMaterials = async () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border overflow-hidden">
+          <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
           {filtered.length === 0 ? (
             <div className="p-8 text-center text-gray-500">{tzList.length === 0 ? 'Нет сформированных ТЗ' : 'Нет ТЗ по выбранным фильтрам'}</div>
           ) : (
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-[#E8F0F7] text-[#0A212F]">
                 <tr>
                   <th className="w-10 px-4 py-3"></th>
                   {[
@@ -3781,7 +3784,7 @@ const saveAllMaterials = async () => {
                             </div>
                           </div>
                           <table className="w-full text-sm bg-white rounded-lg overflow-hidden">
-                            <thead className="bg-gray-100">
+                            <thead className="bg-[#E8F0F7] text-[#0A212F]">
                               <tr>
                                 <th className="w-10 px-3 py-2">
                                   <input 
@@ -3859,7 +3862,7 @@ const saveAllMaterials = async () => {
                               
                               {addSearchResults.length > 0 && (
                                 <table className="w-full text-sm bg-white rounded-lg overflow-hidden border">
-                                  <thead className="bg-blue-100">
+                                  <thead className="bg-[#E8F0F7] text-[#0A212F]">
                                     <tr>
                                       <th className="w-10 px-3 py-2">
                                         <input 
@@ -3913,7 +3916,7 @@ const saveAllMaterials = async () => {
 
       {tab === 'create' && step === 1 && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border p-4 space-y-4">
+          <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4 space-y-4">
             {/* Фильтры */}
             <div className="flex flex-wrap gap-4">
               <select value={selectedStatus} onChange={e => handleStatusChange(e.target.value)} className="px-3 py-2 border rounded-lg">
@@ -3969,7 +3972,7 @@ const saveAllMaterials = async () => {
           </div>
 
           {/* Таблица ПУ */}
-          <div className="bg-white rounded-xl border overflow-hidden">
+          <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
             {!selectedUnit || (needPowerCategory && !selectedPower) ? (
               <div className="p-8 text-center text-gray-500">
                 {needPowerCategory ? (isOksAdmin ? 'Выберите участок ОКС и категорию мощности' : 'Выберите РЭС и категорию мощности') : (isOksAdmin ? 'Выберите участок ОКС' : 'Выберите РЭС')}
@@ -3985,7 +3988,7 @@ const saveAllMaterials = async () => {
                   </button>
                 </div>
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-[#E8F0F7] text-[#0A212F]">
                     <tr>
                       <th className="w-10 px-4 py-3"></th>
                       <th className="px-4 py-3 text-left">Серийный номер</th>
@@ -4015,7 +4018,7 @@ const saveAllMaterials = async () => {
 {tab === 'create' && step === 2 && (
   <div className="flex flex-col h-[calc(100vh-200px)]">
     {/* Шапка */}
-    <div className="bg-white rounded-xl border p-4 mb-4 flex-shrink-0">
+    <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4 mb-4 flex-shrink-0">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold">Шаг 2: Корректировка материалов</h3>
@@ -4034,7 +4037,7 @@ const saveAllMaterials = async () => {
           {/* Список ПУ с материалами */}
     <div className="flex-1 overflow-y-auto space-y-4 pb-4">
           {materialsData.map((pu, idx) => (
-            <div key={pu.id} className="bg-white rounded-xl border overflow-hidden">
+            <div key={pu.id} className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
               <div className="bg-gray-50 px-4 py-3 border-b flex justify-between items-center">
                 <div>
                   <span className="font-medium">{idx + 1}. {pu.serial_number}</span>
@@ -4080,7 +4083,7 @@ const saveAllMaterials = async () => {
                 <div className="p-4 text-center text-gray-500 text-sm">Нет материалов (не выбраны ТТР)</div>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-100">
+                  <thead className="bg-[#E8F0F7] text-[#0A212F]">
                     <tr>
                       <th className="w-10 px-3 py-2"></th>
                       <th className="px-3 py-2 text-left">Материал</th>
@@ -4456,7 +4459,7 @@ const exportToExcel = async () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Заявки ЭСК</h1>
+      <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight">Заявки ЭСК</h1>
 
       <div className="flex gap-2 border-b">
         <button onClick={() => setTab('list')} className={`px-4 py-2 border-b-2 ${tab === 'list' ? 'border-blue-600 text-blue-600' : 'border-transparent'}`}><Icon name="clipboard" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Реестр заявок</button>
@@ -4466,12 +4469,12 @@ const exportToExcel = async () => {
       </div>
 
       {tab === 'list' && (
-        <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
           {requestsList.length === 0 ? (
             <div className="p-8 text-center text-gray-500">Нет сформированных заявок</div>
           ) : (
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-[#E8F0F7] text-[#0A212F]">
                 <tr>
                   <th className="w-10 px-4 py-3"></th>
                   {[
@@ -4536,7 +4539,7 @@ const exportToExcel = async () => {
                             </div>
                             <div className="overflow-x-auto">
                               <table className="w-full text-xs bg-white rounded-lg overflow-hidden">
-                                <thead className="bg-gray-100">
+                                <thead className="bg-[#E8F0F7] text-[#0A212F]">
                                   <tr>
                                     {canManageRequest && (
                                       <th className="px-2 py-2">
@@ -4635,7 +4638,7 @@ const exportToExcel = async () => {
                                 
                                 {reqAddSearchResults.length > 0 && (
                                   <table className="w-full text-xs bg-white rounded-lg overflow-hidden border">
-                                    <thead className="bg-blue-100">
+                                    <thead className="bg-[#E8F0F7] text-[#0A212F]">
                                       <tr>
                                         <th className="w-8 px-2 py-2">
                                           <input 
@@ -4691,7 +4694,7 @@ const exportToExcel = async () => {
             <span className="text-yellow-700"><Icon name="alert" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Только согласованные ПУ доступны для формирования заявки</span>
           </div>
 
-          <div className="bg-white rounded-xl border p-4 space-y-4">
+          <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4 space-y-4">
             <div className="flex flex-wrap gap-4 items-end">
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">Номер заявки *</label>
@@ -4767,7 +4770,7 @@ const exportToExcel = async () => {
 </div>
           </div>
 
-          <div className="bg-white rounded-xl border overflow-hidden">
+          <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
             {pendingItems.length === 0 ? (
               <div className="p-8 text-center text-gray-500">Нет согласованных ПУ для заявки</div>
             ) : (
@@ -4795,7 +4798,7 @@ const exportToExcel = async () => {
                   </button>
                 </div>
                 <table className="w-full text-sm">
-  <thead className="bg-gray-50">
+  <thead className="bg-[#E8F0F7] text-[#0A212F]">
     <tr>
       <th className="w-10 px-3 py-3"></th>
       <th className="px-3 py-3 text-left">РЭС</th>
@@ -4902,11 +4905,11 @@ function MemoPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold"><Icon name="fileText" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Формирование служебных записок</h1>
+      <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight"><Icon name="fileText" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Формирование служебных записок</h1>
 
       <div className="grid grid-cols-2 gap-6">
         {/* ТЗ */}
-        <div className="bg-white rounded-xl border p-4">
+        <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4">
           <h2 className="font-semibold mb-4">Технические задания</h2>
           {tzList.length === 0 ? (
             <p className="text-gray-500 text-sm">Нет сформированных ТЗ</p>
@@ -4926,7 +4929,7 @@ function MemoPage() {
         </div>
 
         {/* Заявки */}
-        <div className="bg-white rounded-xl border p-4">
+        <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4">
           <h2 className="font-semibold mb-4">Заявки ЭСК</h2>
           {requestsList.length === 0 ? (
             <p className="text-gray-500 text-sm">Нет сформированных заявок</p>
@@ -4950,7 +4953,7 @@ function MemoPage() {
       {loading && <div className="py-8"><RossetiLoader /></div>}
       
       {memoData && !loading && (
-        <div className="bg-white rounded-xl border">
+        <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm">
           <div className="p-4 border-b flex justify-between items-center">
             <div>
               <h2 className="font-semibold">Служебная записка</h2>
@@ -4968,7 +4971,7 @@ function MemoPage() {
               <div key={unit} className="border rounded-lg overflow-hidden">
                 <div className="bg-gray-50 px-4 py-2 font-medium">{unit} ({items.length} шт)</div>
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-100">
+                  <thead className="bg-[#E8F0F7] text-[#0A212F]">
                     <tr>
                       <th className="px-3 py-2 text-left w-10">№</th>
                       <th className="px-3 py-2 text-left">Серийный номер</th>
@@ -5019,7 +5022,7 @@ function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Настройки</h1>
+      <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight">Настройки</h1>
 
       {/* Вкладки: на моб. — горизонтальный скролл, на lg — перенос как было */}
       <div className="flex gap-1 border-b border-slate-200 flex-nowrap overflow-x-auto lg:flex-wrap lg:overflow-visible">
@@ -5095,9 +5098,9 @@ function UsersTab() {
       </div>
 
       {/* Десктоп — таблица (как была) */}
-      <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
+      <div className="hidden lg:block bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left">Логин</th><th className="px-4 py-3 text-left">ФИО</th><th className="px-4 py-3 text-left">Email</th><th className="px-4 py-3 text-left">Роль</th><th className="px-4 py-3 text-left">Подразделение</th><th className="px-4 py-3 text-left">Статус</th><th className="w-24"></th></tr></thead>
+          <thead className="bg-[#E8F0F7] text-[#0A212F]"><tr><th className="px-4 py-3 text-left">Логин</th><th className="px-4 py-3 text-left">ФИО</th><th className="px-4 py-3 text-left">Email</th><th className="px-4 py-3 text-left">Роль</th><th className="px-4 py-3 text-left">Подразделение</th><th className="px-4 py-3 text-left">Статус</th><th className="w-24"></th></tr></thead>
           <tbody>
             {[...users].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', 'ru')).map(u => (
               <tr key={u.id} className={`border-t ${!u.is_active ? 'opacity-50' : ''}`}>
@@ -5123,7 +5126,7 @@ function UsersTab() {
       {/* Мобильный — карточки */}
       <div className="lg:hidden space-y-2">
         {[...users].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', 'ru')).map(u => (
-          <div key={u.id} className={`bg-white rounded-xl border p-3 ${!u.is_active ? 'opacity-60' : ''}`}>
+          <div key={u.id} className={`bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-3 ${!u.is_active ? 'opacity-60' : ''}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="font-medium truncate">{u.full_name || '—'}</div>
@@ -5213,9 +5216,9 @@ function MastersTab() {
       </div>
 
       {/* Десктоп — таблица (как была) */}
-      <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
+      <div className="hidden lg:block bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left">ФИО</th><th className="px-4 py-3 text-left">Подразделение ЭСК</th><th className="w-24"></th></tr></thead>
+          <thead className="bg-[#E8F0F7] text-[#0A212F]"><tr><th className="px-4 py-3 text-left">ФИО</th><th className="px-4 py-3 text-left">Подразделение ЭСК</th><th className="w-24"></th></tr></thead>
           <tbody>
             {masters.map(m => (
               <tr key={m.id} className="border-t">
@@ -5234,7 +5237,7 @@ function MastersTab() {
       {/* Мобильный — карточки */}
       <div className="lg:hidden space-y-2">
         {masters.map(m => (
-          <div key={m.id} className="bg-white rounded-xl border p-3">
+          <div key={m.id} className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-3">
             <div className="font-medium">{m.full_name}</div>
             <div className="text-xs text-slate-500 mt-0.5">{m.unit_name || '—'}</div>
             <div className="mt-2 flex gap-2">
@@ -5310,9 +5313,9 @@ function TTRResTab() {
       </div>
 
       {/* Десктоп — таблица (как была) */}
-      <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
+      <div className="hidden lg:block bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-  <thead className="bg-gray-50">
+  <thead className="bg-[#E8F0F7] text-[#0A212F]">
     <tr>
       <th className="px-4 py-3 text-left">Код</th>
       <th className="px-4 py-3 text-left">Название</th>
@@ -5345,7 +5348,7 @@ function TTRResTab() {
       {/* Мобильный — карточки */}
       <div className="lg:hidden space-y-2">
         {filtered.map(i => (
-          <div key={i.id} className="bg-white rounded-xl border p-3">
+          <div key={i.id} className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono font-medium">{i.code}</span>
               <span className="shrink-0 text-xs text-slate-500">{i.ttr_type === 'OU' ? 'Орг. учета' : i.ttr_type === 'OL' ? 'Обуст. линии' : i.ttr_type === 'TT' ? 'Трансф. тока' : 'Распред. щит'}</span>
@@ -5480,7 +5483,7 @@ function TTRMaterialsModal({ ttr, onClose }) {
         
         <div className="p-4 overflow-y-auto max-h-96">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-[#E8F0F7] text-[#0A212F]">
               <tr>
                 <th className="w-10 px-2 py-2"></th>
                 <th className="px-2 py-2 text-left">Материал</th>
@@ -5634,9 +5637,9 @@ function TTREskTab() {
       </div>
 
       {/* Десктоп — таблица (как была) */}
-      <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
+      <div className="hidden lg:block bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-[#E8F0F7] text-[#0A212F]">
             <tr>
               <th className="px-4 py-3 text-left">Тип ТТР</th>
               <th className="px-4 py-3 text-left">Вид работ</th>
@@ -5681,7 +5684,7 @@ function TTREskTab() {
       {/* Мобильный — карточки */}
       <div className="lg:hidden space-y-2">
         {filtered.map(i => (
-          <div key={i.id} className="bg-white rounded-xl border p-3">
+          <div key={i.id} className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-3">
             <div className="flex items-center justify-between gap-2">
               <span className={`px-2 py-0.5 rounded-full text-xs ${i.ttr_type === 'PU' ? 'bg-blue-100 text-blue-700' : i.ttr_type === 'TRUBOSTOYKA' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{ttrTypeLabels[i.ttr_type] || i.ttr_type}</span>
               <span className="shrink-0 font-mono text-xs text-slate-500">{i.lsr_number || '—'}</span>
@@ -5820,9 +5823,9 @@ function MaterialsTab() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border overflow-hidden">
+      <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-  <thead className="bg-gray-50">
+  <thead className="bg-[#E8F0F7] text-[#0A212F]">
     <tr>
       <th className="px-4 py-3 text-left">Название</th>
       <th className="px-4 py-3 text-left">Ед. изм.</th>
@@ -5911,9 +5914,9 @@ function ContractorsTab() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border overflow-hidden">
+      <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-[#E8F0F7] text-[#0A212F]">
             <tr>
               <th className="px-4 py-3 text-left">Наименование подрядчика</th>
               {isSueAdmin && <th className="px-4 py-3 text-right w-24">Действия</th>}
@@ -5990,9 +5993,9 @@ function PUTypesTab() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border overflow-hidden">
+      <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-[#E8F0F7] text-[#0A212F]">
             <tr>
               <th className="px-4 py-3 text-left">Паттерн</th>
               <th className="px-4 py-3 text-left">Фазность</th>
@@ -6074,9 +6077,9 @@ function VANominalsTab() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border overflow-hidden">
+      <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-[#E8F0F7] text-[#0A212F]">
             <tr>
               <th className="px-4 py-3 text-left">Номинал ВА</th>
               {isSueAdmin && <th className="px-4 py-3 text-right w-24">Действия</th>}
@@ -6151,9 +6154,9 @@ function TTNominalsTab() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border overflow-hidden">
+      <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-[#E8F0F7] text-[#0A212F]">
             <tr>
               <th className="px-4 py-3 text-left">Номинал ТТ</th>
               {isSueAdmin && <th className="px-4 py-3 text-right w-24">Действия</th>}
@@ -6351,7 +6354,7 @@ function SystemTab() {
   return (
     <div className="space-y-6">
       {/* Диагностика */}
-      <div className="bg-white rounded-xl border p-6 space-y-4">
+      <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-6 space-y-4">
         <h2 className="font-semibold text-blue-600"><Icon name="search" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Диагностика системы</h2>
         
     <div className="flex gap-4 flex-wrap">
@@ -6415,7 +6418,7 @@ function SystemTab() {
 
       {/* Опасная зона — только для учётки admin */}
       {currentUser?.username === 'admin' && (
-      <div className="bg-white rounded-xl border p-6 space-y-4">
+      <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-6 space-y-4">
         <h2 className="font-semibold text-red-600"><Icon name="alert" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Опасная зона</h2>
         <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg">
           <div>
@@ -6574,7 +6577,7 @@ function BulkUpdateTab() {
       </div>
 
       {result ? (
-        <div className="bg-white rounded-xl border p-6 space-y-4">
+        <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-6 space-y-4">
           <div className="text-center">
             <div className="mb-4 flex justify-center"><span className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-600"><Icon name="checkCircle" className="w-9 h-9" /></span></div>
             <h3 className="text-xl font-semibold text-green-600">
@@ -6624,7 +6627,7 @@ function BulkUpdateTab() {
           </div>
         </div>
      ) : (
-        <div className="bg-white rounded-xl border p-6 space-y-4">
+        <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-6 space-y-4">
           {mode !== 'autofaza' && mode !== 'formfactor' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Файл Excel (.xlsx)</label>
@@ -6811,7 +6814,7 @@ function MoveScanPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl lg:text-2xl font-bold"><Icon name="package" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Перемещение сканером</h1>
+        <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight"><Icon name="package" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Перемещение сканером</h1>
       </div>
 
       {moveResult && (
@@ -6831,7 +6834,7 @@ function MoveScanPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* ЛЕВО: реестр + поиск/сканер */}
-        <div className="bg-white rounded-xl border p-4 lg:p-5 space-y-3">
+        <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4 lg:p-5 space-y-3">
           <h3 className="font-semibold text-slate-700"><Icon name="search" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Реестр ПУ</h3>
 
           <div>
@@ -6895,7 +6898,7 @@ function MoveScanPage() {
         </div>
 
         {/* ПРАВО: к перемещению */}
-        <div className="bg-white rounded-xl border p-4 lg:p-5 space-y-3">
+        <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4 lg:p-5 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-slate-700"><Icon name="arrowRight" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> К перемещению <span className="text-blue-600">({picked.length})</span></h3>
             {picked.length > 0 && (
@@ -6982,7 +6985,7 @@ function MoveBulkPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold"><Icon name="package" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Массовое перемещение ПУ</h1>
+      <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight"><Icon name="package" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Массовое перемещение ПУ</h1>
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <h3 className="font-medium text-blue-800 mb-2"><Icon name="clipboard" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Формат файла Excel:</h3>
@@ -6993,7 +6996,7 @@ function MoveBulkPage() {
       </div>
 
       {result ? (
-        <div className="bg-white rounded-xl border p-6 space-y-4">
+        <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-6 space-y-4">
           <div className="text-center">
             <div className="mb-4 flex justify-center"><span className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-600"><Icon name="checkCircle" className="w-9 h-9" /></span></div>
             <h3 className="text-xl font-semibold text-green-600">Перемещено: {result.moved} ПУ</h3>
@@ -7034,7 +7037,7 @@ function MoveBulkPage() {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border p-6 space-y-4">
+        <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Файл Excel (.xlsx)</label>
             <input
@@ -7070,7 +7073,7 @@ function MoveBulkPage() {
   )
 }
 function AnalysisPage() {
-  const { isSueAdmin, isEskAdmin, isResUser, isEskUser, isOksAdmin } = useAuth()
+  const { isSueAdmin, isEskAdmin, isOksAdmin } = useAuth()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [dateFrom, setDateFrom] = useState('')
@@ -7097,205 +7100,159 @@ function AnalysisPage() {
   const clearFilter = () => { setDateFrom(''); setDateTo(''); setTimeout(load, 100) }
 
   const isAdmin = isSueAdmin || isEskAdmin || isOksAdmin
-
-  const nazLabels = { IZHC: 'ИЖЦ', TECHPRIS: 'Техприс', ZAMENA: 'Замены' }
-  const sectionLabels = { total: 'Всего ПУ', installed: 'Установлено', actioned: 'Актировано', sklad: 'Остаток склад' }
-  const sectionColors = { total: 'blue', installed: 'green', actioned: 'indigo', sklad: 'gray' }
-
-const renderBreakdownTable = (units, totals, title, bgColor) => {
-    if (!units || units.length === 0) return null
-
-    return (
-      <div className="bg-white rounded-xl border overflow-hidden">
-        <div className={`${bgColor} px-4 py-3 border-b`}>
-          <h2 className="font-semibold">{title}</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-gray-100 border-b">
-                <th rowSpan={3} className="px-3 py-2 text-left border-r sticky left-0 bg-gray-100 min-w-[150px]">Подразделение</th>
-                <th colSpan={5} className="px-2 py-1 text-center border-r bg-purple-50">ИЖЦ</th>
-                <th colSpan={5} className="px-2 py-1 text-center border-r bg-green-50">Техприс</th>
-                <th colSpan={5} className="px-2 py-1 text-center bg-yellow-50">Замены</th>
-              </tr>
-              <tr className="bg-gray-50 border-b">
-                <th colSpan={2} className="px-2 py-1 text-center border-r text-purple-700">Сплит</th>
-                <th colSpan={3} className="px-2 py-1 text-center border-r text-purple-700">Классика</th>
-                <th colSpan={2} className="px-2 py-1 text-center border-r text-green-700">Сплит</th>
-                <th colSpan={3} className="px-2 py-1 text-center border-r text-green-700">Классика</th>
-                <th colSpan={2} className="px-2 py-1 text-center border-r text-yellow-700">Сплит</th>
-                <th colSpan={3} className="px-2 py-1 text-center text-yellow-700">Классика</th>
-              </tr>
-              <tr className="bg-gray-50 border-b text-[10px]">
-                <th className="px-1 py-1 text-center border-r">1Ф</th>
-                <th className="px-1 py-1 text-center border-r">3Ф</th>
-                <th className="px-1 py-1 text-center border-r">1ф</th>
-                <th className="px-1 py-1 text-center border-r">3ф</th>
-                <th className="px-1 py-1 text-center border-r">3фтт</th>
-                <th className="px-1 py-1 text-center border-r">1Ф</th>
-                <th className="px-1 py-1 text-center border-r">3Ф</th>
-                <th className="px-1 py-1 text-center border-r">1ф</th>
-                <th className="px-1 py-1 text-center border-r">3ф</th>
-                <th className="px-1 py-1 text-center border-r">3фтт</th>
-                <th className="px-1 py-1 text-center border-r">1Ф</th>
-                <th className="px-1 py-1 text-center border-r">3Ф</th>
-                <th className="px-1 py-1 text-center border-r">1ф</th>
-                <th className="px-1 py-1 text-center border-r">3ф</th>
-                <th className="px-1 py-1 text-center">3фтт</th>
-              </tr>
-            </thead>
-            <tbody>
-              {units.map(unit => {
-                const bd = unit.breakdown?.[activeSection] || {}
-                const cell = (val) => {
-                  const v = val || 0
-                  if (v === 0) return <span className="text-gray-300">—</span>
-                  return <span className="font-semibold text-green-800">{v}</span>
-                }
-                const cellBg = (val) => (val || 0) > 0 ? 'bg-green-50' : ''
-                return (
-                  <tr key={unit.id} className="border-t hover:bg-gray-50">
-                    <td className="px-3 py-2 font-medium border-r sticky left-0 bg-white">{unit.name}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.IZHC?.split?.['1ф'])}`}>{cell(bd.IZHC?.split?.['1ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.IZHC?.split?.['3ф'])}`}>{cell(bd.IZHC?.split?.['3ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.IZHC?.classic?.['1ф'])}`}>{cell(bd.IZHC?.classic?.['1ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.IZHC?.classic?.['3ф'])}`}>{cell(bd.IZHC?.classic?.['3ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.IZHC?.classic?.['3фтт'])}`}>{cell(bd.IZHC?.classic?.['3фтт'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.TECHPRIS?.split?.['1ф'])}`}>{cell(bd.TECHPRIS?.split?.['1ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.TECHPRIS?.split?.['3ф'])}`}>{cell(bd.TECHPRIS?.split?.['3ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.TECHPRIS?.classic?.['1ф'])}`}>{cell(bd.TECHPRIS?.classic?.['1ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.TECHPRIS?.classic?.['3ф'])}`}>{cell(bd.TECHPRIS?.classic?.['3ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.TECHPRIS?.classic?.['3фтт'])}`}>{cell(bd.TECHPRIS?.classic?.['3фтт'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.ZAMENA?.split?.['1ф'])}`}>{cell(bd.ZAMENA?.split?.['1ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.ZAMENA?.split?.['3ф'])}`}>{cell(bd.ZAMENA?.split?.['3ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.ZAMENA?.classic?.['1ф'])}`}>{cell(bd.ZAMENA?.classic?.['1ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellBg(bd.ZAMENA?.classic?.['3ф'])}`}>{cell(bd.ZAMENA?.classic?.['3ф'])}</td>
-                    <td className={`px-1 py-2 text-center ${cellBg(bd.ZAMENA?.classic?.['3фтт'])}`}>{cell(bd.ZAMENA?.classic?.['3фтт'])}</td>
-                  </tr>
-                )
-              })}
-              {isAdmin && totals && (() => {
-                const bd = totals.breakdown?.[activeSection] || {}
-                const cellT = (val) => {
-                  const v = val || 0
-                  if (v === 0) return <span className="text-gray-400">—</span>
-                  return <span className="font-bold text-green-900">{v}</span>
-                }
-                const cellTBg = (val) => (val || 0) > 0 ? 'bg-green-100' : ''
-                return (
-                  <tr className="border-t bg-gray-100 font-bold">
-                    <td className="px-3 py-2 border-r sticky left-0 bg-gray-100">ИТОГО</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.IZHC?.split?.['1ф'])}`}>{cellT(bd.IZHC?.split?.['1ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.IZHC?.split?.['3ф'])}`}>{cellT(bd.IZHC?.split?.['3ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.IZHC?.classic?.['1ф'])}`}>{cellT(bd.IZHC?.classic?.['1ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.IZHC?.classic?.['3ф'])}`}>{cellT(bd.IZHC?.classic?.['3ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.IZHC?.classic?.['3фтт'])}`}>{cellT(bd.IZHC?.classic?.['3фтт'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.TECHPRIS?.split?.['1ф'])}`}>{cellT(bd.TECHPRIS?.split?.['1ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.TECHPRIS?.split?.['3ф'])}`}>{cellT(bd.TECHPRIS?.split?.['3ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.TECHPRIS?.classic?.['1ф'])}`}>{cellT(bd.TECHPRIS?.classic?.['1ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.TECHPRIS?.classic?.['3ф'])}`}>{cellT(bd.TECHPRIS?.classic?.['3ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.TECHPRIS?.classic?.['3фтт'])}`}>{cellT(bd.TECHPRIS?.classic?.['3фтт'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.ZAMENA?.split?.['1ф'])}`}>{cellT(bd.ZAMENA?.split?.['1ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.ZAMENA?.split?.['3ф'])}`}>{cellT(bd.ZAMENA?.split?.['3ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.ZAMENA?.classic?.['1ф'])}`}>{cellT(bd.ZAMENA?.classic?.['1ф'])}</td>
-                    <td className={`px-1 py-2 text-center border-r ${cellTBg(bd.ZAMENA?.classic?.['3ф'])}`}>{cellT(bd.ZAMENA?.classic?.['3ф'])}</td>
-                    <td className={`px-1 py-2 text-center ${cellTBg(bd.ZAMENA?.classic?.['3фтт'])}`}>{cellT(bd.ZAMENA?.classic?.['3фтт'])}</td>
-                  </tr>
-                )
-              })()}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    )
-  }
+  const g = data?.grand_total
+  const share = (part, total) => total ? part / total * 100 : 0
+  // Плитки — и итоги, и переключатель разреза таблиц
+  const sections = [
+    { key: 'total', title: 'Всего ПУ', tone: 'navy', icon: 'gauge', value: g?.total, ring: 100 },
+    { key: 'installed', title: 'Установлено', tone: 'green', value: g?.installed, ring: share(g?.installed, g?.total), label: true },
+    { key: 'actioned', title: 'Актировано', tone: 'teal', value: g?.actioned, ring: share(g?.actioned, g?.installed), label: true, note: 'от установленных' },
+    { key: 'sklad', title: 'Остаток склад', tone: 'aqua', icon: 'warehouse', value: g?.sklad, ring: share(g?.sklad, g?.total) },
+  ]
+  const sectionTitle = sections.find(s => s.key === activeSection)?.title
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold"><Icon name="chart" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Анализ остатков</h1>
-        <button onClick={load} className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"><Icon name="refresh" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> Обновить</button>
+    <div className="space-y-5 lg:space-y-6 max-w-[1400px]">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight">Анализ остатков</h1>
+          <p className="text-[#6E91B7] font-semibold mt-1">
+            {isAdmin && g ? <>Всего ФЭС: <span className="text-[#304B78] tabular-nums">{fmtNum(g.total)}</span> ПУ · разрез по назначению, исполнению и фазности</> : 'Разрез по назначению, исполнению и фазности'}
+          </p>
+        </div>
+        <button onClick={load} className={btn.secondary}><Icon name="refresh" className="w-4 h-4" /> Обновить</button>
       </div>
 
       {/* Фильтр по периоду */}
-      <div className="bg-white rounded-xl border p-4">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Период с</label>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="px-3 py-2 border rounded-lg" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">по</label>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="px-3 py-2 border rounded-lg" />
-          </div>
-          <button onClick={handleFilter} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Применить</button>
-          {(dateFrom || dateTo) && (
-            <button onClick={clearFilter} className="px-4 py-2 bg-gray-100 rounded-lg">Сбросить</button>
-          )}
-        </div>
+      <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4 lg:p-5 flex flex-wrap gap-3 items-end">
+        <label className="text-sm font-semibold text-[#52657A]">Период с
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="block mt-1 px-3 h-10 border border-[#CFDFEF] rounded-xl text-[#0A212F]" />
+        </label>
+        <label className="text-sm font-semibold text-[#52657A]">по
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="block mt-1 px-3 h-10 border border-[#CFDFEF] rounded-xl text-[#0A212F]" />
+        </label>
+        <button onClick={handleFilter} className={btn.primary}>Применить</button>
+        {(dateFrom || dateTo) && <button onClick={clearFilter} className={btn.secondary}>Сбросить</button>}
       </div>
 
       {loading ? (
         <div className="py-12"><RossetiLoader /></div>
       ) : data && (
-        <div className="space-y-6">
-          {/* Общий итог */}
-          {isAdmin && data.grand_total && (
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white">
-              <h2 className="text-lg font-semibold mb-4"><Icon name="building" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> ВСЕГО ФЭС</h2>
-              <div className="grid grid-cols-4 gap-4">
-                <div className="bg-white/20 rounded-lg p-4 text-center">
-                  <div className="text-3xl font-bold">{data.grand_total.total}</div>
-                  <div className="text-blue-100">Всего ПУ</div>
-                </div>
-                <div className="bg-white/20 rounded-lg p-4 text-center">
-                  <div className="text-3xl font-bold">{data.grand_total.installed}</div>
-                  <div className="text-blue-100">Установлено</div>
-                </div>
-                <div className="bg-white/20 rounded-lg p-4 text-center">
-                  <div className="text-3xl font-bold">{data.grand_total.actioned}</div>
-                  <div className="text-blue-100">Актировано</div>
-                </div>
-                <div className="bg-white/20 rounded-lg p-4 text-center">
-                  <div className="text-3xl font-bold">{data.grand_total.sklad}</div>
-                  <div className="text-blue-100">Остаток склад</div>
-                </div>
-              </div>
+        <div className="space-y-5 lg:space-y-6">
+          {isAdmin && g && (
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-4">
+              {sections.map(s => (
+                <KpiTile key={s.key} tone={s.tone} title={s.title} value={s.value} icon={s.icon} note={s.note}
+                  ring={s.ring} ringLabel={s.label ? fmtPct(s.ring) : null}
+                  active={activeSection === s.key} onClick={() => setActiveSection(s.key)} />
+              ))}
             </div>
           )}
 
-          {/* Переключатель секций */}
-          <div className="bg-white rounded-xl border p-4">
-            <div className="flex gap-2">
-              {Object.entries(sectionLabels).map(([key, label]) => (
-                <button 
-                  key={key}
-                  onClick={() => setActiveSection(key)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    activeSection === key 
-                      ? 'bg-blue-600 text-white' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {label}
-                </button>
+          {/* Разрез для ролей без итоговых плиток */}
+          {!(isAdmin && g) && (
+            <div className="flex flex-wrap gap-2">
+              {sections.map(s => (
+                <button key={s.key} onClick={() => setActiveSection(s.key)}
+                  className={activeSection === s.key ? btn.primary : btn.secondary}>{s.title}</button>
               ))}
             </div>
-          </div>
+          )}
 
-          {/* Таблицы с разбивкой */}
-          {renderBreakdownTable(data.res, data.res_total, 'РЭС (РСК)', 'bg-green-50')}
-          {renderBreakdownTable(data.esk, data.esk_total, 'ЭСК', 'bg-orange-50')}
-          {renderBreakdownTable(data.oks, data.oks_total, 'ОКС', 'bg-indigo-50')}
+          <BreakdownTable title="РЭС (РСК)" icon="building" units={data.res} totals={isAdmin ? data.res_total : null} section={activeSection} sectionTitle={sectionTitle} />
+          <BreakdownTable title="ЭСК" icon="zap" units={data.esk} totals={isAdmin ? data.esk_total : null} section={activeSection} sectionTitle={sectionTitle} />
+          <BreakdownTable title="ОКС" icon="crane" units={data.oks} totals={isAdmin ? data.oks_total : null} section={activeSection} sectionTitle={sectionTitle} />
 
           {(!data.res || data.res.length === 0) && (!data.esk || data.esk.length === 0) && (!data.oks || data.oks.length === 0) && (
-            <div className="bg-white rounded-xl border p-8 text-center text-gray-500">
-              Нет данных для отображения
-            </div>
+            <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 p-8 text-center text-[#52657A]">Нет данных для отображения</div>
           )}
         </div>
       )}
     </div>
+  )
+}
+
+// Разрез остатков: назначение (ИЖЦ / Техприс / Замены) × исполнение × фазность.
+// Ячейки подкрашены по величине (тепловая карта в цвете группы), справа — итог строки.
+const NAZ_GROUPS = [
+  { key: 'IZHC', label: 'ИЖЦ', head: 'bg-[#2D325A]', sub: 'bg-[#DCDEEC] text-[#2D325A]', rgb: '45,50,90' },
+  { key: 'TECHPRIS', label: 'Техприс', head: 'bg-[#2E8C74]', sub: 'bg-[#D5F0E8] text-[#1F5A4C]', rgb: '46,140,116' },
+  { key: 'ZAMENA', label: 'Замены', head: 'bg-[#2494A2]', sub: 'bg-[#D2ECEE] text-[#165059]', rgb: '36,148,162' },
+]
+const BREAKDOWN_COLS = [['split', '1ф', '1Ф'], ['split', '3ф', '3Ф'], ['classic', '1ф', '1ф'], ['classic', '3ф', '3ф'], ['classic', '3фтт', '3фтт']]
+
+function BreakdownTable({ title, icon, units, totals, section, sectionTitle }) {
+  if (!units || units.length === 0) return null
+  const values = (bd) => NAZ_GROUPS.flatMap(gr => BREAKDOWN_COLS.map(([kind, phase]) => bd?.[gr.key]?.[kind]?.[phase] || 0))
+  const rows = units.map(u => ({ id: u.id, name: u.name, vals: values(u.breakdown?.[section]) }))
+  const rowSum = vals => vals.reduce((a, b) => a + b, 0)
+  const max = Math.max(1, ...rows.flatMap(r => r.vals))
+  const maxSum = Math.max(1, ...rows.map(r => rowSum(r.vals)))
+  const totalVals = totals ? values(totals.breakdown?.[section]) : null
+  const cell = (v, i, strong) => {
+    const gr = NAZ_GROUPS[Math.floor(i / BREAKDOWN_COLS.length)]
+    const groupEnd = i % BREAKDOWN_COLS.length === BREAKDOWN_COLS.length - 1
+    const alpha = v ? 0.08 + 0.42 * (v / max) : 0
+    return (
+      <td key={i} className={`px-1.5 py-2.5 text-center tabular-nums ${groupEnd ? 'border-r-2 border-white' : ''}`}
+        style={!strong && v ? { background: `rgba(${gr.rgb},${alpha.toFixed(3)})` } : undefined}>
+        {v ? <span className={`font-semibold ${!strong && v / max > 0.6 ? 'text-white' : 'text-[#0A212F]'}`}>{fmtNum(v)}</span> : <span className="text-[#BCC8D5]">—</span>}
+      </td>
+    )
+  }
+  return (
+    <section className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
+      <header className="flex items-center gap-3 px-4 lg:px-6 py-4">
+        <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#E8F0F7] text-[#304B78]"><Icon name={icon} className="w-5 h-5" /></span>
+        <h2 className="text-lg lg:text-xl font-bold text-[#0A212F] flex-1">{title}</h2>
+        <span className="text-sm font-semibold text-[#304B78] bg-[#E8F0F7] px-3 py-1 rounded-lg">{sectionTitle}</span>
+      </header>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead className="text-[#0A212F]">
+            <tr>
+              <th rowSpan={3} className="sticky left-0 z-[1] bg-[#E8F0F7] px-4 py-2 text-left font-semibold min-w-[170px] border-r-2 border-white">Подразделение</th>
+              {NAZ_GROUPS.map(gr => <th key={gr.key} colSpan={5} className={`${gr.head} text-white px-2 py-2 text-center font-bold tracking-wide border-r-2 border-white`}>{gr.label}</th>)}
+              <th rowSpan={3} className="bg-[#E8F0F7] px-4 py-2 text-left font-semibold min-w-[150px]">Всего</th>
+            </tr>
+            <tr>
+              {NAZ_GROUPS.map(gr => <Fragment key={gr.key}>
+                <th colSpan={2} className={`${gr.sub} px-2 py-1.5 text-center font-semibold text-xs`}>Сплит</th>
+                <th colSpan={3} className={`${gr.sub} px-2 py-1.5 text-center font-semibold text-xs border-r-2 border-white border-l border-l-white/70`}>Классика</th>
+              </Fragment>)}
+            </tr>
+            <tr className="text-[11px] text-[#52657A]">
+              {NAZ_GROUPS.map(gr => BREAKDOWN_COLS.map(([kind, phase, label], i) => (
+                <th key={gr.key + kind + phase} className={`bg-[#F2F6FA] px-1.5 py-1.5 text-center font-semibold ${i === 4 ? 'border-r-2 border-white' : ''}`}>{label}</th>
+              )))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => {
+              const sum = rowSum(r.vals)
+              return (
+                <tr key={r.id} className="border-t border-[#E8EEF4] hover:[&>td:first-child]:bg-[#E8F0F7]">
+                  <td className="sticky left-0 z-[1] bg-white px-4 py-2.5 font-semibold text-[#0A212F] border-r-2 border-[#F2F6FA] transition-colors">{r.name}</td>
+                  {r.vals.map((v, i) => cell(v, i, false))}
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="font-bold tabular-nums text-[#0A212F] w-12 text-right">{fmtNum(sum)}</span>
+                      <span className="h-2 flex-1 min-w-[50px] rounded-full bg-[#E8EEF4] overflow-hidden"><span className="block h-full rounded-full bg-[#304B78]" style={{ width: `${sum / maxSum * 100}%` }} /></span>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+            {totalVals && (
+              <tr className="bg-[#E4EAF3] font-bold border-t-2 border-[#CFDFEF]">
+                <td className="sticky left-0 z-[1] bg-[#E4EAF3] px-4 py-3 text-[#142B49] border-r-2 border-white">ИТОГО</td>
+                {totalVals.map((v, i) => cell(v, i, true))}
+                <td className="px-4 py-3 text-[#142B49] tabular-nums">{fmtNum(rowSum(totalVals))}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }
