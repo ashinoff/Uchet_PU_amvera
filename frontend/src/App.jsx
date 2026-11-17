@@ -292,6 +292,7 @@ const NAV_TITLES = {
   home: 'Сводка',
   pu: 'Приборы учёта',
   'pu-sklad': 'Склад',
+  materials: 'Склад материалов',
   'pu-done': 'Завершённые СМР',
   'pu-actioned': 'Актированные ПУ',
   analysis: 'Анализ остатков',
@@ -363,6 +364,7 @@ function Main() {
           {page === 'move-bulk' && <MoveBulkPage />}
           {page === 'move-scan' && <MoveScanPage />}
           {page === 'analysis' && <AnalysisPage />}
+          {page === 'materials' && <MaterialsPage />}
         </div>
       </div>
 
@@ -394,6 +396,7 @@ function Sidebar({ page, setPage, pendingCount = 0, open = false, onClose }) {
     { id: 'home', icon: 'chart', label: 'Сводка', show: true },
     { id: 'pu', icon: 'gauge', label: 'Приборы учёта', show: true },
     { id: 'pu-sklad', icon: 'box', label: 'Склад', show: true },
+    { id: 'materials', icon: 'package', label: 'Склад материалов', show: isSueAdmin || isResUser },
     { id: 'move-scan', icon: 'scan', label: 'Перемещение сканером', show: isSueAdmin || isLabUser || isEskAdmin || isOksAdmin },
     { id: 'pu-done', icon: 'wrench', label: 'Завершённые СМР', show: true },
     { id: 'pu-actioned', icon: 'clipboard', label: 'Актированные ПУ', show: true },
@@ -409,7 +412,7 @@ function Sidebar({ page, setPage, pendingCount = 0, open = false, onClose }) {
   // Группы меню по смыслу — у каждой свой оттенок синего из палитры
   // (от тёмного «Учёта» до светлой «Системы»).
   const groups = [
-    { id: 'account', title: 'Учёт', items: ['home', 'pu', 'pu-sklad', 'move-scan'],
+    { id: 'account', title: 'Учёт', items: ['home', 'pu', 'pu-sklad', 'materials', 'move-scan'],
       box: 'bg-[#142B49] text-white', title_: 'text-white', item: 'text-white/85 hover:bg-white/10 hover:text-white', icon: 'text-white/70' },
     { id: 'work', title: 'Выполнение', items: ['pu-done', 'pu-actioned', 'approval'],
       box: 'bg-[#304B78] text-white', title_: 'text-white', item: 'text-white/85 hover:bg-white/10 hover:text-white', icon: 'text-white/70' },
@@ -881,6 +884,407 @@ function Dialog({ onClose, children }) {
       <div className="relative bg-white w-full sm:max-w-md rounded-t-[28px] sm:rounded-[28px] p-5 lg:p-6 shadow-2xl max-h-[90vh] overflow-y-auto animate-rise-in">{children}</div>
     </div>,
     document.body
+  )
+}
+
+// ==================== СКЛАД МАТЕРИАЛОВ ====================
+// Склад СУЭ + склады РЭС. СУЭ: приход (форма и Excel), перемещение между складами,
+// корректировка, «Контроль остатков». РЭС: только свой склад и свой журнал.
+const MOVE_KINDS = {
+  RECEIPT:   { label: 'Приход',        cls: 'bg-[#D5F0E8] text-[#1F5A4C]' },
+  TRANSFER:  { label: 'Перемещение',   cls: 'bg-[#E1EBF5] text-[#253D65]' },
+  WRITE_OFF: { label: 'Списание по ПУ', cls: 'bg-[#F8EDC9] text-[#6D4F1B]' },
+  ADJUST:    { label: 'Корректировка', cls: 'bg-[#DCDEEC] text-[#2D325A]' },
+}
+const fmtQty = q => (Math.round((q || 0) * 1000) / 1000).toLocaleString('ru-RU')
+const fmtDateTime = d => d ? new Date(d.endsWith?.('Z') ? d : d + 'Z').toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+
+function MaterialsPage() {
+  const { isSueAdmin } = useAuth()
+  const [data, setData] = useState(null)
+  const [tab, setTab] = useState('stock')
+  const [query, setQuery] = useState('')
+  const [sheet, setSheet] = useState(null)       // { kind: 'receipt' | 'transfer' | 'adjust', ... }
+  const [importing, setImporting] = useState(false)
+  const fileRef = useRef(null)
+
+  const load = () => api.get('/materials/stock').then(r => setData(r.data)).catch(e => alert(e.response?.data?.detail || 'Не удалось загрузить склад'))
+  useEffect(() => { load() }, [])
+
+  const toggleControl = async () => {
+    const next = !data.control
+    if (next && !confirm('Включить контроль остатков?\n\nТТР без материалов на складе РЭС станут неактивными, а при сохранении карточки ПУ с датой СМР материалы будут списываться со склада РЭС.')) return
+    await api.post('/materials/control', { enabled: next })
+    load()
+  }
+  const importExcel = async (file) => {
+    if (!file) return
+    setImporting(true)
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const r = await api.post('/materials/stock/import', fd)
+      alert(`Приход из Excel: добавлено строк — ${r.data.added}` +
+        (r.data.unknown.length ? `\n\nНе найдены в справочнике материалов (${r.data.unknown.length}):\n• ${r.data.unknown.slice(0, 20).join('\n• ')}` : '') +
+        (r.data.skipped ? `\n\nПропущено пустых строк: ${r.data.skipped}` : ''))
+      load()
+    } catch (e) { alert(e.response?.data?.detail || 'Ошибка импорта') }
+    setImporting(false)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  if (!data) return <div className="py-16"><RossetiLoader /></div>
+  const whs = data.warehouses
+  const mats = data.materials.filter(m => !query || m.name.toLowerCase().includes(query.toLowerCase()))
+  const total = m => whs.reduce((a, w) => a + (m.qty[w.id] || 0), 0)
+  const resWhs = whs.filter(w => w.kind === 'RES')
+  const emptyRes = data.materials.filter(m => m.is_active).reduce((a, m) => a + resWhs.filter(w => !(m.qty[w.id] > 0)).length, 0)
+
+  return (
+    <div className="space-y-5 lg:space-y-6 max-w-[1400px]">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl lg:text-[32px] font-extrabold text-[#0A212F] tracking-tight leading-tight">Склад материалов</h1>
+          <p className="text-[#6E91B7] font-semibold mt-1">{isSueAdmin ? 'Склад СУЭ и склады РЭС · приход, перемещение, списание по ПУ' : `Остатки материалов: ${whs[0]?.name || 'ваш РЭС'}`}</p>
+        </div>
+        {isSueAdmin && (
+          <div className="flex gap-2.5 flex-wrap">
+            <button onClick={() => setSheet({ kind: 'receipt' })} className={btn.primary}><Icon name="plus" className="w-4 h-4" /> Приход</button>
+            <button onClick={() => fileRef.current?.click()} disabled={importing} className={btn.secondary}><Icon name="upload" className="w-4 h-4" /> {importing ? 'Загрузка…' : 'Приход из Excel'}</button>
+            <button onClick={() => setSheet({ kind: 'transfer' })} className={btn.secondary}><Icon name="arrowRight" className="w-4 h-4" /> Перемещение</button>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => importExcel(e.target.files?.[0])} />
+          </div>
+        )}
+      </div>
+
+      {/* Контроль остатков */}
+      <div className={`rounded-3xl p-4 lg:p-5 flex flex-col sm:flex-row sm:items-center gap-3 ${data.control ? 'bg-[#E2F3EE]' : 'bg-[#FCF7E8] border border-[#F1DC97]'}`}>
+        <span className={`inline-flex items-center justify-center w-11 h-11 rounded-xl shrink-0 ${data.control ? 'bg-[#56BDA2] text-[#0A212F]' : 'bg-[#DBB13B] text-[#0A212F]'}`}>
+          <Icon name={data.control ? 'checkCircle' : 'alert'} className="w-6 h-6" />
+        </span>
+        <div className="flex-1">
+          <div className="font-bold text-[#0A212F]">Контроль остатков {data.control ? 'включён' : 'выключен'}</div>
+          <div className="text-sm text-[#52657A]">{data.control
+            ? 'ТТР без материалов на складе РЭС неактивны; при сохранении карточки ПУ с датой СМР материалы списываются со склада РЭС.'
+            : 'Склад можно наполнять и раздавать по РЭС — карточки ПУ пока работают как раньше, без проверки и списания.'}</div>
+        </div>
+        {isSueAdmin && <button onClick={toggleControl} className={data.control ? btn.secondary : btn.primary}>{data.control ? 'Выключить' : 'Включить контроль'}</button>}
+      </div>
+
+      {isSueAdmin && (
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-4">
+          <KpiTile tone="navy" title="Материалов" value={data.materials.filter(m => m.is_active).length} icon="package" ring={100} onClick={() => setTab('stock')} />
+          <KpiTile tone="aqua" title="На складе СУЭ" note="позиций с остатком" value={data.materials.filter(m => m.qty[whs[0]?.id] > 0).length} icon="warehouse"
+            ring={data.materials.length ? data.materials.filter(m => m.qty[whs[0]?.id] > 0).length / data.materials.length * 100 : 0} onClick={() => setTab('stock')} />
+          <KpiTile tone="green" title="Складов РЭС" value={resWhs.length} icon="building" ring={100} onClick={() => setTab('stock')} />
+          <KpiTile tone="yellow" title="Пустых позиций" note="материал × РЭС без остатка" value={emptyRes} icon="alert"
+            ring={resWhs.length && data.materials.length ? emptyRes / (resWhs.length * data.materials.filter(m => m.is_active).length || 1) * 100 : 0} onClick={() => setTab('stock')} />
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <button onClick={() => setTab('stock')} className={`px-4 py-2 ${tab === 'stock' ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}><Icon name="warehouse" className="w-4 h-4" /> Остатки</button>
+        <button onClick={() => setTab('moves')} className={`px-4 py-2 ${tab === 'moves' ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}><Icon name="clock" className="w-4 h-4" /> Журнал движений</button>
+        {tab === 'stock' && <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Поиск материала…" className="ml-auto w-full sm:w-72 px-3 h-10 border border-[#CFDFEF] rounded-xl bg-white" />}
+      </div>
+
+      {tab === 'stock' && (
+        <section className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead className="text-[#0A212F]">
+                <tr>
+                  <th className="sticky left-0 z-[1] bg-[#E8F0F7] px-4 py-3 text-left font-semibold min-w-[220px]">Материал</th>
+                  <th className="bg-[#E8F0F7] px-2 py-3 text-left font-semibold">Ед.</th>
+                  {whs.map(w => <th key={w.id} className={`px-3 py-3 text-right font-semibold whitespace-nowrap ${w.kind === 'SUE' ? 'bg-[#142B49] text-white' : 'bg-[#E8F0F7]'}`}>{w.name}</th>)}
+                  {whs.length > 1 && <th className="bg-[#D5F0E8] px-4 py-3 text-right font-semibold">Всего</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {mats.map(m => {
+                  const max = Math.max(1, ...whs.map(w => m.qty[w.id] || 0))
+                  return (
+                    <tr key={m.id} className="border-t border-[#E8EEF4]">
+                      <td className="sticky left-0 z-[1] bg-white px-4 py-2.5 font-semibold text-[#0A212F]">{m.name}{!m.is_active && <span className="ml-2 text-xs text-[#52657A] font-normal">(неактивен)</span>}</td>
+                      <td className="px-2 py-2.5 text-[#52657A]">{m.unit}</td>
+                      {whs.map(w => {
+                        const v = m.qty[w.id] || 0
+                        const bg = v > 0 ? `rgba(${w.kind === 'SUE' ? '48,75,120' : '46,140,116'},${(0.07 + 0.3 * v / max).toFixed(3)})` : undefined
+                        return (
+                          <td key={w.id} style={{ background: bg }} onClick={isSueAdmin ? () => setSheet({ kind: 'adjust', unit_id: w.id, material: m }) : undefined}
+                            title={isSueAdmin ? 'Корректировка остатка' : undefined}
+                            className={`px-3 py-2.5 text-right tabular-nums ${isSueAdmin ? 'cursor-pointer hover:outline hover:outline-2 hover:outline-[#6E91B7] hover:-outline-offset-2' : ''} ${v < 0 ? 'text-[#BA0401] font-bold' : v > 0 ? 'font-semibold text-[#0A212F]' : 'text-[#BCC8D5]'}`}>
+                            {v ? fmtQty(v) : '—'}
+                          </td>
+                        )
+                      })}
+                      {whs.length > 1 && <td className="px-4 py-2.5 text-right font-bold tabular-nums text-[#0A212F] bg-[#F2F9F6]">{fmtQty(total(m))}</td>}
+                    </tr>
+                  )
+                })}
+                {!mats.length && <tr><td colSpan={whs.length + 3} className="px-4 py-10 text-center text-[#52657A]">Материалы не найдены. Справочник — в «Настройки → Материалы».</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tab === 'moves' && <MaterialMoves warehouses={whs} />}
+
+      {sheet?.kind === 'receipt' && <MaterialReceiptSheet materials={data.materials.filter(m => m.is_active)} onClose={() => setSheet(null)} onDone={() => { setSheet(null); load() }} />}
+      {sheet?.kind === 'transfer' && <MaterialTransferSheet data={data} onClose={() => setSheet(null)} onDone={() => { setSheet(null); load() }} />}
+      {sheet?.kind === 'adjust' && <MaterialAdjustSheet data={data} unitId={sheet.unit_id} material={sheet.material} onClose={() => setSheet(null)} onDone={() => { setSheet(null); load() }} />}
+    </div>
+  )
+}
+
+function MaterialMoves({ warehouses }) {
+  const [rows, setRows] = useState(null)
+  const [unitId, setUnitId] = useState('')
+  const [kind, setKind] = useState('')
+  useEffect(() => {
+    setRows(null)
+    api.get('/materials/movements', { params: { unit_id: unitId || undefined, kind: kind || undefined } }).then(r => setRows(r.data)).catch(() => setRows([]))
+  }, [unitId, kind])
+  return (
+    <section className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
+      <div className="flex flex-wrap gap-2 p-4">
+        {warehouses.length > 1 && (
+          <select value={unitId} onChange={e => setUnitId(e.target.value)} className="px-3 h-10 border border-[#CFDFEF] rounded-xl">
+            <option value="">Все склады</option>
+            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        )}
+        <select value={kind} onChange={e => setKind(e.target.value)} className="px-3 h-10 border border-[#CFDFEF] rounded-xl">
+          <option value="">Все операции</option>
+          {Object.entries(MOVE_KINDS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+      </div>
+      {!rows ? <div className="py-12"><RossetiLoader size="small" /></div> : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-[#E8F0F7] text-[#0A212F]">
+              <tr>{['Дата', 'Операция', 'Материал', 'Количество', 'Откуда', 'Куда', 'ПУ', 'Кто', 'Комментарий'].map(h => <th key={h} className="px-3 py-3 text-left font-semibold whitespace-nowrap">{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.map(r => {
+                const k = r.kind === 'WRITE_OFF' && r.quantity < 0 ? { label: 'Возврат по ПУ', cls: 'bg-[#D2ECEE] text-[#165059]' }
+                  : MOVE_KINDS[r.kind] || { label: r.kind, cls: 'bg-[#E8EEF4] text-[#34445A]' }
+                const sign = r.kind === 'WRITE_OFF' ? -r.quantity : r.quantity
+                return (
+                  <tr key={r.id} className="border-t border-[#E8EEF4] hover:bg-[#F2F6FA]">
+                    <td className="px-3 py-2.5 whitespace-nowrap text-[#52657A]">{fmtDateTime(r.created_at)}</td>
+                    <td className="px-3 py-2.5"><span className={`px-2 py-0.5 rounded-full text-xs ${k.cls}`}>{k.label}</span></td>
+                    <td className="px-3 py-2.5 font-semibold text-[#0A212F]">{r.material_name}</td>
+                    <td className={`px-3 py-2.5 text-right tabular-nums font-bold whitespace-nowrap ${r.kind === 'TRANSFER' ? 'text-[#304B78]' : sign < 0 ? 'text-[#9A0301]' : 'text-[#26705E]'}`}>
+                      {r.kind === 'TRANSFER' ? '' : sign > 0 ? '+' : sign < 0 ? '−' : ''}{fmtQty(Math.abs(sign))} {r.unit}
+                    </td>
+                    <td className="px-3 py-2.5">{r.from_name || '—'}</td>
+                    <td className="px-3 py-2.5">{r.to_name || '—'}</td>
+                    <td className="px-3 py-2.5 font-mono text-xs">{r.pu_serial || '—'}</td>
+                    <td className="px-3 py-2.5 text-[#52657A]">{r.user_name || '—'}</td>
+                    <td className="px-3 py-2.5 text-[#52657A]">{r.comment || ''}</td>
+                  </tr>
+                )
+              })}
+              {!rows.length && <tr><td colSpan={9} className="px-4 py-10 text-center text-[#52657A]">Движений пока нет</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+// Строки «материал — количество» для прихода и перемещения
+function MaterialRows({ rows, setRows, materials, available }) {
+  const set = (i, patch) => setRows(rows.map((r, j) => j === i ? { ...r, ...patch } : r))
+  return (
+    <div className="space-y-2">
+      {rows.map((r, i) => {
+        const mat = materials.find(m => m.id === Number(r.material_id))
+        const have = available && r.material_id ? available(Number(r.material_id)) : null
+        const over = have !== null && Number(r.quantity) > have
+        return (
+          <div key={i} className="grid grid-cols-[1fr_120px_40px] gap-2 items-start">
+            <select value={r.material_id} onChange={e => set(i, { material_id: e.target.value })} className="px-3 h-11 border border-[#CFDFEF] rounded-xl bg-white min-w-0">
+              <option value="">Материал…</option>
+              {materials.map(m => <option key={m.id} value={m.id}>{m.name}{available ? ` — есть ${fmtQty(available(m.id))} ${m.unit || ''}` : ''}</option>)}
+            </select>
+            <div>
+              <input type="number" min="0" step="any" value={r.quantity} onChange={e => set(i, { quantity: e.target.value })} placeholder={mat?.unit || 'Кол-во'}
+                className={`w-full px-3 h-11 border rounded-xl ${over ? 'border-[#BA0401] bg-[#FDEDEC]' : 'border-[#CFDFEF]'}`} />
+              {over && <div className="text-xs text-[#BA0401] mt-1">есть {fmtQty(have)}</div>}
+            </div>
+            <button type="button" onClick={() => setRows(rows.filter((_, j) => j !== i))} disabled={rows.length === 1} aria-label="Убрать строку"
+              className="no-cut h-11 rounded-xl text-[#52657A] hover:bg-[#FDEDEC] hover:text-[#BA0401] disabled:opacity-30 flex items-center justify-center"><Icon name="trash" className="w-4 h-4" /></button>
+          </div>
+        )
+      })}
+      <button type="button" onClick={() => setRows([...rows, { material_id: '', quantity: '' }])} className={btn.secondary}><Icon name="plus" className="w-4 h-4" /> Добавить материал</button>
+    </div>
+  )
+}
+
+const rowsPayload = rows => rows.filter(r => r.material_id && Number(r.quantity) > 0).map(r => ({ material_id: Number(r.material_id), quantity: Number(r.quantity) }))
+
+function MaterialReceiptSheet({ materials, onClose, onDone }) {
+  const [rows, setRows] = useState([{ material_id: '', quantity: '' }])
+  const [comment, setComment] = useState('')
+  const [busy, setBusy] = useState(false)
+  const submit = async () => {
+    const items = rowsPayload(rows)
+    if (!items.length) return alert('Укажите материалы и количество')
+    setBusy(true)
+    try { await api.post('/materials/stock/receipt', { items, comment }); onDone() }
+    catch (e) { alert(e.response?.data?.detail || 'Ошибка'); setBusy(false) }
+  }
+  return (
+    <Sheet size="form" icon="plus" title="Приход на склад СУЭ" subtitle="Поступление материалов" onClose={onClose}>
+      <div className="space-y-4">
+        <MaterialRows rows={rows} setRows={setRows} materials={materials} />
+        <textarea value={comment} onChange={e => setComment(e.target.value)} rows={2} placeholder="Комментарий: накладная, поставщик…" className="w-full px-3 py-2 border border-[#CFDFEF] rounded-xl" />
+        <div className="flex justify-end gap-2"><button onClick={onClose} className={btn.secondary}>Отмена</button><button onClick={submit} disabled={busy} className={btn.primary}>{busy ? 'Сохранение…' : 'Оприходовать'}</button></div>
+      </div>
+    </Sheet>
+  )
+}
+
+function MaterialTransferSheet({ data, onClose, onDone }) {
+  const whs = data.warehouses
+  const [from, setFrom] = useState(String(whs[0]?.id || ''))
+  const [to, setTo] = useState(String(whs[1]?.id || ''))
+  const [rows, setRows] = useState([{ material_id: '', quantity: '' }])
+  const [comment, setComment] = useState('')
+  const [busy, setBusy] = useState(false)
+  const available = mid => data.materials.find(m => m.id === mid)?.qty[from] || 0
+  const submit = async () => {
+    const items = rowsPayload(rows)
+    if (!items.length) return alert('Укажите материалы и количество')
+    setBusy(true)
+    try { await api.post('/materials/stock/transfer', { from_unit_id: Number(from), to_unit_id: Number(to), items, comment }); onDone() }
+    catch (e) { alert(e.response?.data?.detail || 'Ошибка'); setBusy(false) }
+  }
+  return (
+    <Sheet size="form" icon="arrowRight" title="Перемещение материалов" subtitle="Склад СУЭ ↔ РЭС, между РЭС" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+          <label className="text-sm font-semibold text-[#52657A]">Откуда
+            <select value={from} onChange={e => setFrom(e.target.value)} className="block w-full mt-1 px-3 h-11 border border-[#CFDFEF] rounded-xl bg-white">{whs.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select>
+          </label>
+          <span className="h-11 flex items-center text-[#6E91B7]"><Icon name="arrowRight" className="w-5 h-5" /></span>
+          <label className="text-sm font-semibold text-[#52657A]">Куда
+            <select value={to} onChange={e => setTo(e.target.value)} className="block w-full mt-1 px-3 h-11 border border-[#CFDFEF] rounded-xl bg-white">{whs.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select>
+          </label>
+        </div>
+        {from === to && <div className="text-sm text-[#BA0401]">Выберите разные склады</div>}
+        <MaterialRows rows={rows} setRows={setRows} materials={data.materials.filter(m => m.is_active || available(m.id) > 0)} available={available} />
+        <textarea value={comment} onChange={e => setComment(e.target.value)} rows={2} placeholder="Комментарий" className="w-full px-3 py-2 border border-[#CFDFEF] rounded-xl" />
+        <div className="flex justify-end gap-2"><button onClick={onClose} className={btn.secondary}>Отмена</button><button onClick={submit} disabled={busy || from === to} className={btn.primary}>{busy ? 'Перемещение…' : 'Переместить'}</button></div>
+      </div>
+    </Sheet>
+  )
+}
+
+function MaterialAdjustSheet({ data, unitId, material, onClose, onDone }) {
+  const wh = data.warehouses.find(w => w.id === unitId)
+  const current = material.qty[unitId] || 0
+  const [qty, setQty] = useState(String(current))
+  const [comment, setComment] = useState('')
+  const [busy, setBusy] = useState(false)
+  const submit = async () => {
+    setBusy(true)
+    try { await api.post('/materials/stock/adjust', { unit_id: unitId, material_id: material.id, quantity: Number(qty), comment }); onDone() }
+    catch (e) { alert(e.response?.data?.detail || 'Ошибка'); setBusy(false) }
+  }
+  return (
+    <Sheet size="form" icon="edit" title="Корректировка остатка" subtitle={`${material.name} · ${wh?.name}`} onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-2xl bg-[#E8F0F7] p-4 flex justify-between"><span className="text-[#52657A]">Сейчас на складе</span><span className="font-bold tabular-nums">{fmtQty(current)} {material.unit}</span></div>
+        <label className="block text-sm font-semibold text-[#52657A]">Фактический остаток, {material.unit}
+          <input type="number" min="0" step="any" value={qty} onChange={e => setQty(e.target.value)} className="block w-full mt-1 px-3 h-11 border border-[#CFDFEF] rounded-xl" />
+        </label>
+        <textarea value={comment} onChange={e => setComment(e.target.value)} rows={2} placeholder="Причина: инвентаризация, пересортица…" className="w-full px-3 py-2 border border-[#CFDFEF] rounded-xl" />
+        <div className="flex justify-end gap-2"><button onClick={onClose} className={btn.secondary}>Отмена</button><button onClick={submit} disabled={busy || qty === ''} className={btn.primary}>{busy ? 'Сохранение…' : 'Сохранить'}</button></div>
+      </div>
+    </Sheet>
+  )
+}
+
+// Анализ остатков материалов: остаток и расход (списание по ПУ) по складам РЭС.
+function MaterialAnalysis() {
+  const [data, setData] = useState(null)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const load = () => {
+    setData(null)
+    api.get('/materials/analysis', { params: { date_from: dateFrom || undefined, date_to: dateTo || undefined } })
+      .then(r => setData(r.data)).catch(e => setData({ error: e.response?.data?.detail || 'Ошибка' }))
+  }
+  useEffect(() => { load() }, [])
+  if (!data) return <div className="py-12"><RossetiLoader /></div>
+  if (data.error) return <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 p-8 text-center text-[#52657A]">{data.error}</div>
+  const sue = data.warehouses.find(w => w.kind === 'SUE')
+  const res = data.warehouses.filter(w => w.kind === 'RES')
+  const maxStock = Math.max(1, ...data.materials.flatMap(m => res.map(w => m.stock[w.id] || 0)))
+  const maxUsed = Math.max(1, ...data.materials.flatMap(m => res.map(w => m.used[w.id] || 0)))
+  return (
+    <div className="space-y-5">
+      <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4 lg:p-5 flex flex-wrap gap-3 items-end">
+        <label className="text-sm font-semibold text-[#52657A]">Расход с
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="block mt-1 px-3 h-10 border border-[#CFDFEF] rounded-xl" />
+        </label>
+        <label className="text-sm font-semibold text-[#52657A]">по
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="block mt-1 px-3 h-10 border border-[#CFDFEF] rounded-xl" />
+        </label>
+        <button onClick={load} className={btn.primary}>Применить</button>
+        {!data.control && <span className="text-sm text-[#86621B] bg-[#FCF7E8] px-3 py-2 rounded-xl">Контроль остатков выключен — расход по ПУ не списывается</span>}
+      </div>
+      <section className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm overflow-hidden">
+        <header className="flex items-center gap-3 px-4 lg:px-6 py-4">
+          <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#E8F0F7] text-[#304B78]"><Icon name="package" className="w-5 h-5" /></span>
+          <h2 className="text-lg lg:text-xl font-bold text-[#0A212F] flex-1">Материалы по складам РЭС</h2>
+          <span className="text-sm font-semibold text-[#26705E] bg-[#D5F0E8] px-3 py-1 rounded-lg">остаток</span>
+          <span className="text-sm font-semibold text-[#6D4F1B] bg-[#F8EDC9] px-3 py-1 rounded-lg">расход</span>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead className="text-[#0A212F]">
+              <tr>
+                <th rowSpan={2} className="sticky left-0 z-[1] bg-[#E8F0F7] px-4 py-2 text-left font-semibold min-w-[200px] border-r-2 border-white">Материал</th>
+                {sue && <th rowSpan={2} className="bg-[#142B49] text-white px-3 py-2 text-right font-semibold border-r-2 border-white">Склад СУЭ</th>}
+                {res.map(w => <th key={w.id} colSpan={2} className="bg-[#304B78] text-white px-2 py-2 text-center font-semibold border-r-2 border-white whitespace-nowrap">{w.name}</th>)}
+              </tr>
+              <tr className="text-[11px]">
+                {res.map(w => <Fragment key={w.id}>
+                  <th className="bg-[#D5F0E8] text-[#1F5A4C] px-2 py-1.5 text-center font-semibold">остаток</th>
+                  <th className="bg-[#F8EDC9] text-[#6D4F1B] px-2 py-1.5 text-center font-semibold border-r-2 border-white">расход</th>
+                </Fragment>)}
+              </tr>
+            </thead>
+            <tbody>
+              {data.materials.map(m => (
+                <tr key={m.id} className="border-t border-[#E8EEF4]">
+                  <td className="sticky left-0 z-[1] bg-white px-4 py-2.5 font-semibold text-[#0A212F] border-r-2 border-[#F2F6FA]">{m.name} <span className="text-xs text-[#52657A] font-normal">{m.unit}</span></td>
+                  {sue && <td className="px-3 py-2.5 text-right tabular-nums font-semibold border-r-2 border-[#F2F6FA]">{m.stock[sue.id] ? fmtQty(m.stock[sue.id]) : <span className="text-[#BCC8D5]">—</span>}</td>}
+                  {res.map(w => {
+                    const st = m.stock[w.id] || 0, us = m.used[w.id] || 0
+                    return <Fragment key={w.id}>
+                      <td className="px-2 py-2.5 text-center tabular-nums" style={st > 0 ? { background: `rgba(46,140,116,${(0.07 + 0.35 * st / maxStock).toFixed(3)})` } : undefined}>
+                        {st ? <span className={`font-semibold ${st < 0 ? 'text-[#BA0401]' : ''}`}>{fmtQty(st)}</span> : <span className="text-[#BA0401]/60">0</span>}
+                      </td>
+                      <td className="px-2 py-2.5 text-center tabular-nums border-r-2 border-[#F2F6FA]" style={us > 0 ? { background: `rgba(219,177,59,${(0.1 + 0.45 * us / maxUsed).toFixed(3)})` } : undefined}>
+                        {us ? <span className="font-semibold">{fmtQty(us)}</span> : <span className="text-[#BCC8D5]">—</span>}
+                      </td>
+                    </Fragment>
+                  })}
+                </tr>
+              ))}
+              {!data.materials.length && <tr><td colSpan={2 + res.length * 2} className="px-4 py-10 text-center text-[#52657A]">Нет материалов</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
   )
 }
 
@@ -1506,6 +1910,27 @@ function DeleteWithCodeModal({ title, onClose, onDelete }) {
 }
 
 // ==================== КАРТОЧКА ПУ ====================
+// ТТР в карточке ПУ: без материалов на складе РЭС — неактивен (контроль остатков)
+const ttrOption = (t) => (
+  <option key={t.id} value={t.id} disabled={t.available === false}
+    title={t.available === false ? `Не хватает: ${t.missing.map(m => `${m.material_name} (нужно ${m.need}, есть ${m.have} ${m.unit || ''})`).join(', ')}` : t.name}>
+    {t.code}{t.available === false ? ' — нет материалов' : ''}
+  </option>
+)
+
+function TtrShortageNote({ ttrs }) {
+  const blocked = (ttrs || []).filter(t => t.available === false)
+  if (!blocked.length) return null
+  return (
+    <div className="bg-[#FCF7E8] border border-[#F1DC97] rounded-xl px-3 py-2.5 text-sm text-[#5A421A]">
+      <div className="font-semibold mb-1 flex items-center gap-1.5"><Icon name="box" className="w-4 h-4" /> Неактивны — не хватает материалов на складе РЭС</div>
+      {blocked.map(t => (
+        <div key={t.id}><span className="font-semibold">{t.code}</span>: {t.missing.map(m => `${m.material_name} — нужно ${m.need}, есть ${m.have} ${m.unit || ''}`).join('; ')}</div>
+      ))}
+    </div>
+  )
+}
+
 // Смысловые блоки карточки ПУ: блок целиком в своём оттенке, заголовок — цветная
 // плашка (цвета групп меню и акцентов палитры). На широком экране — две колонки,
 // крупные блоки (ТТР/СМР, материалы) на всю ширину.
@@ -1563,9 +1988,9 @@ useEffect(() => {
       if (itemData.pu_type) {
         try {
           const [ouRes, olRes, orRes, allTtrRes] = await Promise.all([
-            api.get('/ttr/res/for-pu', { params: { pu_type: itemData.pu_type, ttr_type: 'OU' } }),
-            api.get('/ttr/res/for-pu', { params: { pu_type: itemData.pu_type, ttr_type: 'OL' } }),
-            api.get('/ttr/res/for-pu', { params: { pu_type: itemData.pu_type, ttr_type: 'OR' } }),
+            api.get('/ttr/res/for-pu', { params: { pu_type: itemData.pu_type, ttr_type: 'OU', unit_id: itemData.current_unit_id, pu_item_id: itemData.id } }),
+            api.get('/ttr/res/for-pu', { params: { pu_type: itemData.pu_type, ttr_type: 'OL', unit_id: itemData.current_unit_id, pu_item_id: itemData.id } }),
+            api.get('/ttr/res/for-pu', { params: { pu_type: itemData.pu_type, ttr_type: 'OR', unit_id: itemData.current_unit_id, pu_item_id: itemData.id } }),
             api.get('/ttr/res')  // Загружаем все ТТР чтобы взять TT (У-27 универсален, не привязан к типу ПУ)
           ])
           // Берём OU/OL/OR из for-pu (привязанные к типу ПУ), а TT — из общего справочника
@@ -1680,6 +2105,19 @@ const handleSave = async () => {
   if (!validate()) return
   setSaving(true)
   try {
+    // Склад материалов РЭС: не сохраняем карточку, если материалов не хватает
+    if (materials.length > 0) {
+      const check = await api.post(`/pu/items/${itemId}/materials/check`, {
+        smr_date: item.smr_date || null,
+        materials: materials.map(m => ({ material_id: m.material_id, quantity: m.quantity, used: m.used })),
+      })
+      if (check.data.shortages?.length) {
+        alert('Недостаточно материалов на складе РЭС:\n' + check.data.shortages.map(s =>
+          `• ${s.material_name}: нужно ${s.need}, на складе ${s.have} ${s.unit || ''}`).join('\n'))
+        setSaving(false)
+        return
+      }
+    }
     await api.put(`/pu/items/${itemId}`, item)
     
     // Сохраняем материалы если есть
@@ -2237,14 +2675,14 @@ const updateMaterialQty = (materialId, qty) => {
                       if (item.status === 'TECHPRIS') return nameLow.startsWith('установка') || nameLow.includes('установка ')
                       if (item.status === 'ZAMENA' || item.status === 'IZHC') return nameLow.startsWith('замена') || nameLow.includes('замена ')
                       return true
-                    }).map(t => <option key={t.id} value={t.id}>{t.code}</option>)}
+                    }).map(ttrOption)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">ТТР обуст. линии</label>
                   <select value={item.ttr_ol_id || ''} onChange={e => update('ttr_ol_id', parseInt(e.target.value) || null)} disabled={!canEdit} className="w-full px-3 py-2 border rounded-lg">
                     <option value="">—</option>
-                    {ttrRes.filter(t => t.ttr_type === 'OL').map(t => <option key={t.id} value={t.id}>{t.code}</option>)}
+                    {ttrRes.filter(t => t.ttr_type === 'OL').map(ttrOption)}
                   </select>
                 </div>
                 <div>
@@ -2253,11 +2691,12 @@ const updateMaterialQty = (materialId, qty) => {
                   </label>
                   <select value={item.ttr_or_id || ''} onChange={e => update('ttr_or_id', parseInt(e.target.value) || null)} disabled={!canEdit} className={`w-full px-3 py-2 border rounded-lg ${errors.ttr_or_id ? 'border-red-500 bg-red-50' : ''}`}>
                     <option value="">—</option>
-                    {ttrRes.filter(t => t.ttr_type === 'OR').map(t => <option key={t.id} value={t.id}>{t.code}</option>)}
+                    {ttrRes.filter(t => t.ttr_type === 'OR').map(ttrOption)}
                   </select>
                   {errors.ttr_or_id && <p className="text-red-500 text-xs mt-1"><Icon name="alert" className="w-[1em] h-[1em] inline-block align-[-0.15em]" /> {errors.ttr_or_id}</p>}
                 </div>
               </div>
+              <TtrShortageNote ttrs={ttrRes} />
               {/* Описание выбранных ТТР из реестра ТТР (полный текст name) */}
               {(() => {
                 const selected = [
@@ -7073,7 +7512,9 @@ function MoveBulkPage() {
   )
 }
 function AnalysisPage() {
-  const { isSueAdmin, isEskAdmin, isOksAdmin } = useAuth()
+  const { isSueAdmin, isEskAdmin, isOksAdmin, isResUser } = useAuth()
+  const [kind, setKind] = useState('pu')   // приборы учёта | материалы (склады РЭС)
+  const canMaterials = isSueAdmin || isResUser
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [dateFrom, setDateFrom] = useState('')
@@ -7123,6 +7564,14 @@ function AnalysisPage() {
         <button onClick={load} className={btn.secondary}><Icon name="refresh" className="w-4 h-4" /> Обновить</button>
       </div>
 
+      {canMaterials && (
+        <div className="flex gap-2">
+          <button onClick={() => setKind('pu')} className={`px-4 py-2 ${kind === 'pu' ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}><Icon name="gauge" className="w-4 h-4" /> Приборы учёта</button>
+          <button onClick={() => setKind('materials')} className={`px-4 py-2 ${kind === 'materials' ? 'bg-[#304B78] text-white' : 'bg-[#E8F0F7] text-[#142B49] hover:bg-[#CFDFEF]'}`}><Icon name="package" className="w-4 h-4" /> Материалы</button>
+        </div>
+      )}
+      {kind === 'materials' ? <MaterialAnalysis /> : <>
+
       {/* Фильтр по периоду */}
       <div className="bg-white rounded-3xl border border-[#CFDFEF]/70 shadow-sm p-4 lg:p-5 flex flex-wrap gap-3 items-end">
         <label className="text-sm font-semibold text-[#52657A]">Период с
@@ -7168,6 +7617,7 @@ function AnalysisPage() {
           )}
         </div>
       )}
+      </>}
     </div>
   )
 }

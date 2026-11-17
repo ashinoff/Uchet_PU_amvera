@@ -341,6 +341,40 @@ class PUMaterial(Base):
     quantity = Column(Float, default=0)
     used = Column(Boolean, default=True)  # Галочка использован/нет
 
+class MaterialStock(Base):
+    """Остаток материала на складе подразделения (склад СУЭ или склад РЭС)"""
+    __tablename__ = "material_stock"
+    id = Column(Integer, primary_key=True)
+    unit_id = Column(Integer, ForeignKey("units.id"), index=True)
+    material_id = Column(Integer, ForeignKey("materials.id"), index=True)
+    quantity = Column(Float, default=0)
+
+
+class MaterialMovement(Base):
+    """Журнал движения материалов.
+    kind: RECEIPT — приход на склад СУЭ; TRANSFER — перемещение между складами;
+    WRITE_OFF — списание по карточке ПУ (quantity со знаком: <0 — возврат при правке);
+    ADJUST — корректировка остатка (quantity — изменение)."""
+    __tablename__ = "material_movements"
+    id = Column(Integer, primary_key=True)
+    kind = Column(String(20), index=True)
+    material_id = Column(Integer, ForeignKey("materials.id"), index=True)
+    from_unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    to_unit_id = Column(Integer, ForeignKey("units.id"), nullable=True)
+    quantity = Column(Float, default=0)
+    pu_item_id = Column(Integer, ForeignKey("pu_items.id"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    comment = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class AppSetting(Base):
+    """Простые флаги приложения (key → value)"""
+    __tablename__ = "app_settings"
+    key = Column(String(100), primary_key=True)
+    value = Column(String(500))
+
+
 class ESKMaster(Base):
     """Справочник мастеров ЭСК"""
     __tablename__ = "esk_masters"
@@ -1937,6 +1971,8 @@ def update_item(item_id: int, data: PUCardUpdate, db: Session = Depends(get_db),
         if not any([item.ttr_ou_id, item.ttr_ol_id, item.ttr_or_id, item.ttr_tt_id]):
             db.query(PUMaterial).filter(PUMaterial.pu_item_id == item_id).delete()
     
+    db.flush()
+    sync_pu_writeoff(db, item, user)
     db.commit()
     return {"ok": True}
 
@@ -4151,8 +4187,372 @@ def set_ttr_pu_types(ttr_id: int, data: dict, db: Session = Depends(get_db), use
     return {"ok": True}
 
 
+# ==================== СКЛАД МАТЕРИАЛОВ ====================
+# Склад СУЭ (главный) + склад каждого РЭС. СУЭ видит и двигает всё, РЭС видит
+# только свой склад. Списание — по фактическим материалам карточки ПУ РЭС с датой
+# СМР (дельтой к уже списанному). Всё действует, только когда СУЭ включил
+# «Контроль остатков» (до этого склад можно наполнять, карточки работают как раньше).
+
+MATERIAL_CONTROL_KEY = "material_control"
+
+
+def material_control_enabled(db: Session) -> bool:
+    s = db.query(AppSetting).filter(AppSetting.key == MATERIAL_CONTROL_KEY).first()
+    return bool(s and s.value == "1")
+
+
+def sue_warehouse(db: Session):
+    unit = db.query(Unit).filter(Unit.unit_type == UnitType.SUE).order_by(Unit.id).first()
+    if not unit:
+        raise HTTPException(500, "Не найден склад СУЭ (подразделение СУЭ)")
+    return unit
+
+
+def stock_row(db: Session, unit_id: int, material_id: int) -> "MaterialStock":
+    row = db.query(MaterialStock).filter(MaterialStock.unit_id == unit_id, MaterialStock.material_id == material_id).first()
+    if not row:
+        row = MaterialStock(unit_id=unit_id, material_id=material_id, quantity=0)
+        db.add(row)
+        db.flush()
+    return row
+
+
+def stock_qty(db: Session, unit_id: int, material_id: int) -> float:
+    row = db.query(MaterialStock).filter(MaterialStock.unit_id == unit_id, MaterialStock.material_id == material_id).first()
+    return row.quantity if row else 0.0
+
+
+def material_name(db: Session, material_id: int) -> str:
+    m = db.query(Material).filter(Material.id == material_id).first()
+    return m.name if m else f"материал #{material_id}"
+
+
+def fmt_qty(q: float) -> str:
+    return f"{q:g}"
+
+
+def written_off_by_pu(db: Session, pu_item_id: int) -> dict:
+    """Уже списано по ПУ: {(unit_id, material_id): количество}"""
+    rows = db.query(MaterialMovement.from_unit_id, MaterialMovement.material_id, func.sum(MaterialMovement.quantity)) \
+        .filter(MaterialMovement.pu_item_id == pu_item_id, MaterialMovement.kind == "WRITE_OFF") \
+        .group_by(MaterialMovement.from_unit_id, MaterialMovement.material_id).all()
+    return {(u, m): q or 0 for u, m, q in rows if abs(q or 0) > 1e-9}
+
+
+def pu_writeoff_target(db: Session, item, materials=None) -> dict:
+    """Сколько должно быть списано по ПУ: {(unit_id, material_id): количество}.
+    Списываем только у РЭС и только при заполненной дате СМР."""
+    unit = db.query(Unit).filter(Unit.id == item.current_unit_id).first()
+    if not unit or unit.unit_type != UnitType.RES or not item.smr_date:
+        return {}
+    if materials is None:
+        materials = [{"material_id": m.material_id, "quantity": m.quantity, "used": m.used}
+                     for m in db.query(PUMaterial).filter(PUMaterial.pu_item_id == item.id).all()]
+    target = {}
+    for m in materials:
+        q = float(m.get("quantity") or 0)
+        if m.get("used", True) and q > 0:
+            key = (unit.id, int(m["material_id"]))
+            target[key] = target.get(key, 0) + q
+    return target
+
+
+def pu_writeoff_shortages(db: Session, item, materials=None) -> list:
+    """Нехватка на складе РЭС для списания по ПУ (с учётом уже списанного по нему)."""
+    target = pu_writeoff_target(db, item, materials)
+    done = written_off_by_pu(db, item.id)
+    shortages = []
+    for (unit_id, mat_id), need in target.items():
+        delta = need - done.get((unit_id, mat_id), 0)
+        have = stock_qty(db, unit_id, mat_id)
+        if delta > 1e-9 and delta - have > 1e-9:
+            m = db.query(Material).filter(Material.id == mat_id).first()
+            shortages.append({"material_id": mat_id, "material_name": m.name if m else str(mat_id),
+                              "unit": m.unit if m else "", "need": delta, "have": have})
+    return shortages
+
+
+def sync_pu_writeoff(db: Session, item, user, materials=None):
+    """Привести списание по ПУ к фактическим материалам карточки (дельтой).
+    Без коммита — вызывающий коммитит вместе со своими изменениями."""
+    if not material_control_enabled(db):
+        return
+    shortages = pu_writeoff_shortages(db, item, materials)
+    if shortages:
+        text_ = "; ".join(f"{s['material_name']}: нужно {fmt_qty(s['need'])}, на складе {fmt_qty(s['have'])} {s['unit']}" for s in shortages)
+        raise HTTPException(400, f"Недостаточно материалов на складе РЭС — {text_}")
+    target = pu_writeoff_target(db, item, materials)
+    done = written_off_by_pu(db, item.id)
+    for key in set(target) | set(done):
+        unit_id, mat_id = key
+        delta = target.get(key, 0) - done.get(key, 0)
+        if abs(delta) < 1e-9:
+            continue
+        row = stock_row(db, unit_id, mat_id)
+        row.quantity = (row.quantity or 0) - delta
+        db.add(MaterialMovement(kind="WRITE_OFF", material_id=mat_id, from_unit_id=unit_id, quantity=delta,
+                                pu_item_id=item.id, user_id=user.id,
+                                comment=f"ПУ {item.serial_number}" + ("" if delta > 0 else " — возврат при правке карточки")))
+
+
+def stock_scope_units(user: User, db: Session):
+    """Склады, которые видит пользователь: СУЭ — склад СУЭ и все РЭС; РЭС — свой."""
+    if is_sue_admin(user):
+        sue = sue_warehouse(db)
+        res = db.query(Unit).filter(Unit.unit_type == UnitType.RES, Unit.is_active == True).order_by(Unit.name).all()
+        return [sue] + res
+    if is_res_user(user) and user.unit_id:
+        return db.query(Unit).filter(Unit.id == user.unit_id).all()
+    raise HTTPException(403, "Склад материалов доступен СУЭ и РЭС")
+
+
+def require_sue(user: User):
+    if not is_sue_admin(user):
+        raise HTTPException(403, "Только для администратора СУЭ")
+
+
+def warehouse_json(u, sue_id):
+    return {"id": u.id, "name": "Склад СУЭ" if u.id == sue_id else u.name, "kind": "SUE" if u.id == sue_id else "RES"}
+
+
+@app.get("/api/materials/stock")
+def get_material_stock(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    units = stock_scope_units(user, db)
+    sue_id = sue_warehouse(db).id
+    unit_ids = [u.id for u in units]
+    stock = {}
+    for r in db.query(MaterialStock).filter(MaterialStock.unit_id.in_(unit_ids)).all():
+        stock.setdefault(r.material_id, {})[r.unit_id] = r.quantity or 0
+    mats = db.query(Material).order_by(Material.name).all()
+    return {
+        "control": material_control_enabled(db),
+        "warehouses": [warehouse_json(u, sue_id) for u in units],
+        "materials": [{"id": m.id, "name": m.name, "unit": m.unit, "is_active": m.is_active,
+                       "qty": {str(k): v for k, v in stock.get(m.id, {}).items()}}
+                      for m in mats if m.is_active or stock.get(m.id)],
+    }
+
+
+@app.post("/api/materials/control")
+def set_material_control(data: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    require_sue(user)
+    s = db.query(AppSetting).filter(AppSetting.key == MATERIAL_CONTROL_KEY).first()
+    if not s:
+        s = AppSetting(key=MATERIAL_CONTROL_KEY)
+        db.add(s)
+    s.value = "1" if data.get("enabled") else "0"
+    db.commit()
+    return {"control": s.value == "1"}
+
+
+def clean_items(items) -> list:
+    out = []
+    for it in items or []:
+        try:
+            mid, q = int(it.get("material_id")), float(it.get("quantity") or 0)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Неверная строка материалов")
+        if q < 0:
+            raise HTTPException(400, "Количество не может быть отрицательным")
+        if q > 0:
+            out.append((mid, q))
+    if not out:
+        raise HTTPException(400, "Укажите материалы и количество")
+    return out
+
+
+@app.post("/api/materials/stock/receipt")
+def material_receipt(data: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Приход на склад СУЭ: {items: [{material_id, quantity}], comment}"""
+    require_sue(user)
+    sue = sue_warehouse(db)
+    items = clean_items(data.get("items"))
+    for mid, q in items:
+        row = stock_row(db, sue.id, mid)
+        row.quantity = (row.quantity or 0) + q
+        db.add(MaterialMovement(kind="RECEIPT", material_id=mid, to_unit_id=sue.id, quantity=q, user_id=user.id, comment=data.get("comment")))
+    db.commit()
+    return {"ok": True, "count": len(items)}
+
+
+@app.post("/api/materials/stock/import")
+async def material_receipt_import(file: UploadFile = File(...), comment: str = Form(""), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Приход на склад СУЭ из Excel: колонки «Материал» (или «Наименование») и «Количество»."""
+    require_sue(user)
+    df = pd.read_excel(io.BytesIO(await file.read()))
+    cols = {str(c).strip().lower(): c for c in df.columns}
+    name_col = next((cols[k] for k in cols if k.startswith("материал") or k.startswith("наименование")), None)
+    qty_col = next((cols[k] for k in cols if k.startswith("кол")), None)
+    if name_col is None or qty_col is None:
+        raise HTTPException(400, "В файле нужны колонки «Материал» и «Количество»")
+    by_name = {m.name.strip().lower(): m for m in db.query(Material).all() if m.name}
+    sue = sue_warehouse(db)
+    added, unknown, skipped = 0, [], 0
+    for _, r in df.iterrows():
+        name = str(r[name_col]).strip() if pd.notna(r[name_col]) else ""
+        try:
+            q = float(str(r[qty_col]).replace(",", ".")) if pd.notna(r[qty_col]) else 0
+        except ValueError:
+            q = 0
+        if not name or q <= 0:
+            skipped += 1
+            continue
+        m = by_name.get(name.lower())
+        if not m:
+            unknown.append(name)
+            continue
+        row = stock_row(db, sue.id, m.id)
+        row.quantity = (row.quantity or 0) + q
+        db.add(MaterialMovement(kind="RECEIPT", material_id=m.id, to_unit_id=sue.id, quantity=q, user_id=user.id,
+                                comment=(comment or f"Импорт {file.filename}")))
+        added += 1
+    db.commit()
+    return {"added": added, "unknown": unknown, "skipped": skipped}
+
+
+@app.post("/api/materials/stock/transfer")
+def material_transfer(data: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Перемещение между складами (СУЭ ↔ РЭС, РЭС ↔ РЭС): {from_unit_id, to_unit_id, items, comment}"""
+    require_sue(user)
+    allowed = {u.id for u in stock_scope_units(user, db)}
+    src, dst = data.get("from_unit_id"), data.get("to_unit_id")
+    if src not in allowed or dst not in allowed or src == dst:
+        raise HTTPException(400, "Выберите два разных склада")
+    items = clean_items(data.get("items"))
+    short = [f"{material_name(db, mid)}: нужно {fmt_qty(q)}, есть {fmt_qty(stock_qty(db, src, mid))}"
+             for mid, q in items if q - stock_qty(db, src, mid) > 1e-9]
+    if short:
+        raise HTTPException(400, "Недостаточно на складе-источнике — " + "; ".join(short))
+    for mid, q in items:
+        a, b = stock_row(db, src, mid), stock_row(db, dst, mid)
+        a.quantity = (a.quantity or 0) - q
+        b.quantity = (b.quantity or 0) + q
+        db.add(MaterialMovement(kind="TRANSFER", material_id=mid, from_unit_id=src, to_unit_id=dst, quantity=q,
+                                user_id=user.id, comment=data.get("comment")))
+    db.commit()
+    return {"ok": True, "count": len(items)}
+
+
+@app.post("/api/materials/stock/adjust")
+def material_adjust(data: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Корректировка: установить фактический остаток {unit_id, material_id, quantity, comment}"""
+    require_sue(user)
+    unit_id, mid = data.get("unit_id"), data.get("material_id")
+    if unit_id not in {u.id for u in stock_scope_units(user, db)}:
+        raise HTTPException(400, "Неизвестный склад")
+    new_q = float(data.get("quantity") or 0)
+    if new_q < 0:
+        raise HTTPException(400, "Остаток не может быть отрицательным")
+    row = stock_row(db, unit_id, int(mid))
+    delta = new_q - (row.quantity or 0)
+    if abs(delta) < 1e-9:
+        return {"ok": True}
+    row.quantity = new_q
+    db.add(MaterialMovement(kind="ADJUST", material_id=int(mid), to_unit_id=unit_id, quantity=delta, user_id=user.id,
+                            comment=data.get("comment") or "Корректировка остатка"))
+    db.commit()
+    return {"ok": True}
+
+
+@app.get("/api/materials/movements")
+def get_material_movements(unit_id: Optional[int] = None, kind: Optional[str] = None, limit: int = 300,
+                           db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    units = stock_scope_units(user, db)
+    ids = [u.id for u in units]
+    if unit_id:
+        if unit_id not in ids:
+            raise HTTPException(403, "Нет доступа к складу")
+        ids = [unit_id]
+    q = db.query(MaterialMovement).filter(or_(MaterialMovement.from_unit_id.in_(ids), MaterialMovement.to_unit_id.in_(ids)))
+    if kind:
+        q = q.filter(MaterialMovement.kind == kind)
+    rows = q.order_by(MaterialMovement.created_at.desc(), MaterialMovement.id.desc()).limit(min(limit, 2000)).all()
+    sue_id = sue_warehouse(db).id
+    unit_names = {u.id: ("Склад СУЭ" if u.id == sue_id else u.name) for u in db.query(Unit).all()}
+    mats = {m.id: m for m in db.query(Material).all()}
+    users = {u.id: u.full_name for u in db.query(User).filter(User.id.in_({r.user_id for r in rows if r.user_id})).all()}
+    pus = {p.id: p.serial_number for p in db.query(PUItem).filter(PUItem.id.in_({r.pu_item_id for r in rows if r.pu_item_id})).all()}
+    return [{
+        "id": r.id, "kind": r.kind, "created_at": r.created_at, "quantity": r.quantity,
+        "material_name": mats[r.material_id].name if r.material_id in mats else "", "unit": mats[r.material_id].unit if r.material_id in mats else "",
+        "from_name": unit_names.get(r.from_unit_id), "to_name": unit_names.get(r.to_unit_id),
+        "user_name": users.get(r.user_id), "pu_serial": pus.get(r.pu_item_id), "comment": r.comment,
+    } for r in rows]
+
+
+@app.get("/api/materials/analysis")
+def material_analysis(date_from: Optional[date] = None, date_to: Optional[date] = None,
+                      db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Остатки по складам и расход (списание по ПУ) за период по каждому РЭС."""
+    units = stock_scope_units(user, db)
+    sue_id = sue_warehouse(db).id
+    ids = [u.id for u in units]
+    stock = {}
+    for r in db.query(MaterialStock).filter(MaterialStock.unit_id.in_(ids)).all():
+        stock.setdefault(r.material_id, {})[r.unit_id] = r.quantity or 0
+    q = db.query(MaterialMovement.material_id, MaterialMovement.from_unit_id, func.sum(MaterialMovement.quantity)) \
+        .filter(MaterialMovement.kind == "WRITE_OFF", MaterialMovement.from_unit_id.in_(ids))
+    if date_from:
+        q = q.filter(MaterialMovement.created_at >= datetime.combine(date_from, datetime.min.time()))
+    if date_to:
+        q = q.filter(MaterialMovement.created_at < datetime.combine(date_to, datetime.min.time()) + timedelta(days=1))
+    used = {}
+    for mid, uid, s in q.group_by(MaterialMovement.material_id, MaterialMovement.from_unit_id).all():
+        used.setdefault(mid, {})[uid] = s or 0
+    mats = db.query(Material).order_by(Material.name).all()
+    return {
+        "control": material_control_enabled(db),
+        "warehouses": [warehouse_json(u, sue_id) for u in units],
+        "materials": [{"id": m.id, "name": m.name, "unit": m.unit,
+                       "stock": {str(k): v for k, v in stock.get(m.id, {}).items()},
+                       "used": {str(k): v for k, v in used.get(m.id, {}).items()}}
+                      for m in mats if m.is_active or stock.get(m.id) or used.get(m.id)],
+    }
+
+
+@app.post("/api/pu/items/{item_id}/materials/check")
+def check_pu_materials(item_id: int, data: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Проверка перед сохранением карточки: хватит ли материалов на складе РЭС.
+    data: {smr_date, materials: [{material_id, quantity, used}]}"""
+    item = db.query(PUItem).filter(PUItem.id == item_id).first()
+    if not item:
+        raise HTTPException(404, "ПУ не найден")
+    if not material_control_enabled(db):
+        return {"control": False, "shortages": []}
+
+    class Draft:  # карточка с несохранённой датой СМР
+        pass
+    draft = Draft()
+    draft.id, draft.current_unit_id, draft.serial_number = item.id, item.current_unit_id, item.serial_number
+    draft.smr_date = data.get("smr_date", item.smr_date)
+    return {"control": True, "shortages": pu_writeoff_shortages(db, draft, data.get("materials"))}
+
+
+def ttr_availability(db: Session, ttr_ids, unit_id: Optional[int], pu_item_id: Optional[int]) -> dict:
+    """Для каждого ТТР: хватает ли материалов по норме на складе РЭС.
+    Уже списанное по этой ПУ считается доступным (оно вернётся при смене ТТР)."""
+    result = {t: {"available": True, "missing": []} for t in ttr_ids}
+    if not unit_id or not material_control_enabled(db):
+        return result
+    unit = db.query(Unit).filter(Unit.id == unit_id).first()
+    if not unit or unit.unit_type != UnitType.RES:
+        return result
+    own = written_off_by_pu(db, pu_item_id) if pu_item_id else {}
+    for t in ttr_ids:
+        for tm in db.query(TTR_Material).filter(TTR_Material.ttr_res_id == t).all():
+            need = tm.quantity or 0
+            have = stock_qty(db, unit_id, tm.material_id) + own.get((unit_id, tm.material_id), 0)
+            if need > 0 and need - have > 1e-9:
+                m = db.query(Material).filter(Material.id == tm.material_id).first()
+                result[t]["available"] = False
+                result[t]["missing"].append({"material_name": m.name if m else str(tm.material_id), "unit": m.unit if m else "",
+                                             "need": need, "have": max(have, 0)})
+    return result
+
+
 @app.get("/api/ttr/res/for-pu")
-def get_ttr_for_pu(pu_type: str, ttr_type: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def get_ttr_for_pu(pu_type: str, ttr_type: str, unit_id: Optional[int] = None, pu_item_id: Optional[int] = None,
+                   db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Получить ТТР доступные для данного типа ПУ"""
     print(f"=== TTR FOR PU ===")
     print(f"pu_type: {pu_type}")
@@ -4203,7 +4603,9 @@ def get_ttr_for_pu(pu_type: str, ttr_type: str, db: Session = Depends(get_db), u
         print(f"  - id={t.id}, code={t.code}, ttr_type={t.ttr_type}")
     
     # ⭐ ИСПРАВЛЕНИЕ: добавляем ttr_type и use_tt в ответ!
-    return [{"id": t.id, "code": t.code, "name": t.name, "ttr_type": t.ttr_type, "use_tt": t.use_tt} for t in ttrs]
+    avail = ttr_availability(db, [t.id for t in ttrs], unit_id, pu_item_id)
+    return [{"id": t.id, "code": t.code, "name": t.name, "ttr_type": t.ttr_type, "use_tt": t.use_tt,
+             "available": avail[t.id]["available"], "missing": avail[t.id]["missing"]} for t in ttrs]
 
 @app.get("/api/pu/items/{item_id}/materials")
 def get_pu_materials(
@@ -4293,6 +4695,8 @@ def save_pu_materials(item_id: int, data: dict, db: Session = Depends(get_db), u
         db.add(pm)
     
     item.materials_used = True
+    db.flush()
+    sync_pu_writeoff(db, item, user)
     db.commit()
     return {"ok": True}
 
@@ -4414,6 +4818,8 @@ def save_materials_bulk(data: dict, db: Session = Depends(get_db), user: User = 
     
         item.materials_used = True
         saved += 1
+        db.flush()
+        sync_pu_writeoff(db, item, user)
     
     db.commit()
     return {"saved": saved}
