@@ -3,7 +3,8 @@
 ЭТАП 1: Базовая структура
 """
 import os
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Query, Request
+import hmac
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Query, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
@@ -761,6 +762,24 @@ def check_contract_duplicate(
 @app.get("/api/health")
 def health():
     return {"status": "ok", "message": "Система учета ПУ v2"}
+
+# Служебный запрос для ЭнергоСферы («Создание акта по ТУ»): ПУ по номеру договора ТП.
+# Доступ — по ключу ES_SERVICE_KEY (заголовок X-Service-Key), без ключа в окружении выключен.
+ES_SERVICE_KEY = os.getenv("ES_SERVICE_KEY", "")
+
+@app.get("/api/service/pu")
+def service_pu(contract: str = Query(..., min_length=5, max_length=50), x_service_key: str = Header(default=""), db: Session = Depends(get_db)):
+    if not ES_SERVICE_KEY:
+        raise HTTPException(503, "Служебный доступ не настроен: задайте ES_SERVICE_KEY")
+    if not hmac.compare_digest(x_service_key.encode(), ES_SERVICE_KEY.encode()):
+        raise HTTPException(401, "Неверный служебный ключ")
+    key = re.sub(r"\s+", "", contract)
+    items = db.query(PUItem).filter(func.replace(PUItem.contract_number, " ", "") == key).order_by(PUItem.id).all()
+    return {"items": [{
+        "serialNumber": i.serial_number, "puType": i.pu_type, "formFactor": i.form_factor, "connectionType": i.connection_type,
+        "faza": i.faza, "voltage": i.voltage, "power": i.power, "status": i.status.value if i.status else None,
+        "smrDate": i.smr_date.isoformat() if i.smr_date else None, "unit": i.current_unit.name if i.current_unit else None,
+    } for i in items]}
 
 @app.post("/api/auth/login", response_model=TokenResp)
 def login(req: LoginReq, db: Session = Depends(get_db)):
