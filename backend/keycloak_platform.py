@@ -15,7 +15,7 @@ TTL — Keycloak не дёргается на каждый запрос. Сам 
   KEYCLOAK_REALM     — platform
   KEYCLOAK_AZP       — web-desktop
   PLATFORM_ORIGIN    — https://sue-system-2-ashinoff.waw0.amvera.tech
-  SVET_ACCESS_ROLE   — realm-роль, дающая доступ к приложению (svet-user)
+  SVET_ACCESS_ROLE   — realm-роль, без которой не пускать (пусто — пускать всех; было svet-user)
 """
 import os
 import json
@@ -30,7 +30,9 @@ KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "https://keycloak-waw-ashinoff.waw0.amv
 KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "platform")
 KEYCLOAK_AZP = os.getenv("KEYCLOAK_AZP", "web-desktop")
 PLATFORM_ORIGIN = os.getenv("PLATFORM_ORIGIN", "https://sue-system-2-ashinoff.waw0.amvera.tech")
-SVET_ACCESS_ROLE = os.getenv("SVET_ACCESS_ROLE", "svet-user")
+# Пусто (по умолчанию) — пускаем всех вошедших в платформу: роль в «Светлячке»
+# определяется по email из своей базы (решение владельца 24.11.2026).
+SVET_ACCESS_ROLE = os.getenv("SVET_ACCESS_ROLE", "").strip()
 
 KEYCLOAK_ISSUER = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}"
 KEYCLOAK_JWKS_URL = f"{KEYCLOAK_ISSUER}/protocol/openid-connect/certs"
@@ -118,5 +120,5 @@ def identity_from_claims(claims: dict) -> dict:
 
 
 def has_svet_access(roles) -> bool:
-    """True, если в токене есть роль доступа к «Светлячку»."""
-    return SVET_ACCESS_ROLE in roles
+    """True, если роль доступа не задана или она есть в токене."""
+    return not SVET_ACCESS_ROLE or SVET_ACCESS_ROLE in roles
